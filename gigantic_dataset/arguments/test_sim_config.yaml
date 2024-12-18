@@ -1,0 +1,151 @@
+inp_paths:
+- gigantic_dataset/inputs/public/Anytown.inp
+sim_outputs:
+- pressure
+- demand
+ray_temp_path: tmp/ray
+temp_path: gigantic_dataset/temp
+output_path: gigantic_dataset/outputs
+batch_size: 1
+duration: 8760 #24
+num_samples: 10
+backup_times: 1
+num_cpus: 10
+time_consistency: false
+save_success_inp: true
+verbose: true
+tank_tune: !!python/object:utils.configs.TankTuneConfig
+    elevation_strategy: keep
+    elevation_values: null
+    diameter_strategy: keep
+    diameter_values: null
+    max_level_strategy: keep
+    max_level_values: null
+    init_level_strategy: keep
+    init_level_values: null
+    min_level_strategy: keep
+    min_level_values: null
+    overflow_strategy: keep
+    overflow_values: null
+    vol_curve_name_strategy: keep
+    vol_curve_name_values: null
+    min_vol_strategy: keep
+    min_vol_values: null
+reservoir_tune: !!python/object:utils.configs.ReservoirTuneConfig
+    base_head_strategy: sampling
+    base_head_values:
+    - 26.542999999999992
+    - 59.81699999999999
+    head_pattern_name_strategy: keep
+    head_pattern_name_values: null
+junction_tune: !!python/object:utils.configs.JunctionTuneConfig
+    required_pressure_strategy: keep
+    required_pressure_values: null
+    elevation_strategy: keep
+    elevation_values: null
+    minimum_pressure_strategy: keep
+    minimum_pressure_values: null
+    pressure_exponent_strategy: keep
+    pressure_exponent_values: null
+    base_demand_strategy: adg_v2
+    base_demand_values:
+    - 0.02839059 #10.5
+pipe_tune: !!python/object:utils.configs.PipeTuneConfig
+    initial_status_strategy: keep
+    initial_status_values: null
+    diameter_strategy: keep
+    diameter_values: null
+    minor_loss_strategy: keep
+    minor_loss_values: null
+    roughness_strategy: keep
+    roughness_values: null
+    wall_coeff_strategy: keep
+    wall_coeff_values: null
+    length_strategy: keep
+    length_values: null
+power_pump_tune: !!python/object:utils.configs.PowerPumpConfig
+    initial_status_strategy: keep
+    initial_status_values: null
+    energy_price_strategy: keep
+    energy_price_values: null
+    energy_pattern_strategy: keep
+    energy_pattern_values: null
+    base_speed_strategy: keep
+    base_speed_values: null
+    efficiency_strategy: keep
+    efficiency_values: null
+    power_strategy: keep
+    power_values: null
+head_pump_tune: !!python/object:utils.configs.HeadPumpConfig
+    initial_status_strategy: sampling
+    initial_status_values:
+    - 0.125
+    - 0.0
+    energy_price_strategy: keep
+    energy_price_values: null
+    energy_pattern_strategy: keep
+    energy_pattern_values: null
+    base_speed_strategy: keep
+    base_speed_values: null
+    efficiency_strategy: keep
+    efficiency_values: null
+    pump_curve_name_strategy: keep
+    pump_curve_name_values: null
+prv_tune: !!python/object:utils.configs.PRVTuneConfig
+    initial_status_strategy: keep
+    initial_status_values: null
+    initial_setting_strategy: keep
+    initial_setting_values: null
+psv_tune: !!python/object:utils.configs.PSVTuneConfig
+    initial_status_strategy: keep
+    initial_status_values: null
+    initial_setting_strategy: keep
+    initial_setting_values: null
+pbv_tune: !!python/object:utils.configs.PBVTuneConfig
+    initial_status_strategy: keep
+    initial_status_values: null
+    initial_setting_strategy: keep
+    initial_setting_values: null
+fcv_tune: !!python/object:utils.configs.FCVTuneConfig
+    initial_status_strategy: keep
+    initial_status_values: null
+    initial_setting_strategy: keep
+    initial_setting_values: null
+tcv_tune: !!python/object:utils.configs.TCVTuneConfig
+    initial_status_strategy: keep
+    initial_status_values: null
+    initial_setting_strategy: keep
+    initial_setting_values: null
+gpv_tune: !!python/object:utils.configs.GPVTuneConfig
+    initial_status_strategy: keep
+    initial_status_values: null
+    initial_setting_strategy: keep
+    initial_setting_values: null
+    headloss_curve_name_strategy: keep
+    headloss_curve_name_values: null
+adgv2_config: !!python/object:utils.configs.ADGV2Config
+    yearly_pattern_num_harmonics: 4
+    summer_amplitude_range: !!python/tuple
+    - 2
+    - 5
+    summer_period: !!python/tuple
+    - 4704
+    - 5544
+    summer_rolling_rate: 0.2
+    summer_max_num_hours_rolling: 4368
+    p_commercial: !!python/tuple
+    - 0.25
+    - 0.35
+    profile_household: !!python/tuple
+    - 0
+    - 2
+    - 1
+    - 0
+    profile_commercial: !!python/tuple
+    - 2
+    - 2
+    - 2
+    - 1
+    noise_range: !!python/tuple
+    - 0.02
+    - 0.2
