@@ -1,0 +1,16 @@
+site_name: GiDA
+nav:
+  - Introduction: 
+    - Overview: overview.md
+    - Install GiDA: installation.md
+    - Quickstart: quickstart.md
+  - Tutorials: 
+    - Datasets: datasets.md
+    - Parameter stacking: parameters.md
+    - Simulation Configuration: simconfig_tut.md
+    - Scenario generation: scene_gen.md
+  - Advance Topics:
+    - Hydraulic Parameter Optimization: hpo.md
+    - Naive/ Manual HPO: naive_manual_hpo.md
+    - PSO: pso.md
+theme: readthedocs
