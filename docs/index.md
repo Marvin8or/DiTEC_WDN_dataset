@@ -26,7 +26,7 @@ If you use the dataset, please cite:
 ```latex
 
 @misc{huy2025dwd}{
-    title={DiTEC-WDN: a Dataset of Integrated Timeseries, Event, Connectivity for Water Distribution Networks}, 
+    title={DiTEC-WDN: A Large-Scale Dataset of Water Distribution Network Scenarios under Diverse Hydraulic Conditions}, 
     author={Huy Truong and Andr\'{e}s Tello and Alexander Lazovik and Victoria Degeler},
     year={2025},
     note = {HT and AT contributed equally to this work. The dataset is linked to a paper submitted to *Nature Scientific Data*.}
