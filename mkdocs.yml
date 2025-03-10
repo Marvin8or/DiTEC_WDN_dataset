@@ -1,13 +1,13 @@
-site_name: GiDA
+site_name: DWD
 nav:
   - Introduction: 
-    - Install GiDA: installation.md
+    - Install DiTEC-WDN: installation.md
     - Quickstart: quickstart.md
   - Tutorials: 
     - Datasets: datasets.md
     - Parameter stacking: parameters.md
     - Simulation Configuration: simconfig_tut.md
-    - Scenario generation: scene_gen.md
+    - Scenario generation: scenegen.md
   - Advance Topics:
     - Hydraulic Parameter Optimization: hpo.md
     - Naive/ Manual HPO: naive_manual_hpo.md
