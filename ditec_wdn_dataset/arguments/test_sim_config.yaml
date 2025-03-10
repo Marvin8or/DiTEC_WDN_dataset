@@ -1,11 +1,11 @@
 inp_paths:
-- gigantic_dataset/inputs/public/Anytown.inp
+- ditec_wdn_dataset/inputs/public/Anytown.inp
 sim_outputs:
 - pressure
 - demand
 ray_temp_path: tmp/ray
-temp_path: gigantic_dataset/temp
-output_path: gigantic_dataset/outputs
+temp_path: ditec_wdn_dataset/temp
+output_path: ditec_wdn_dataset/outputs
 batch_size: 1
 duration: 8760 #24
 num_samples: 10

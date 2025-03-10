@@ -25,13 +25,13 @@ import psutil
 from multiprocessing import cpu_count
 from typing import Callable, Generator, Literal, Type, Union
 
-from gigantic_dataset.utils.configs import (
+from ditec_wdn_dataset.utils.configs import (
     SimConfig,
     TuneConfig,
     Strategy,
     ADGV2Config,
 )
-from gigantic_dataset.utils.auxil_v8 import (
+from ditec_wdn_dataset.utils.auxil_v8 import (
     list_filtered_simulation_parameters,
     check_valid_curve,
     list_all_simulated_parameters,
@@ -56,13 +56,13 @@ from gigantic_dataset.utils.auxil_v8 import (
     is_node_simulation_output,
     pretty_print,
 )
-from gigantic_dataset.utils.profiler import WatcherManager
-from gigantic_dataset.utils.misc import get_flow_units
-from gigantic_dataset.utils.terrain import generate_elevation
-from gigantic_dataset.core.demand_generator import create_random_pattern
-from gigantic_dataset.utils.ray_utils import ray_mapping, ChunkFnProto, check_usage_if_verbose
-from gigantic_dataset.core.demand_generator_v2 import generate_demand
-# from gigantic_dataset.core.demand_generator_v2_fixed import generate_demand
+from ditec_wdn_dataset.utils.profiler import WatcherManager
+from ditec_wdn_dataset.utils.misc import get_flow_units
+from ditec_wdn_dataset.utils.terrain import generate_elevation
+from ditec_wdn_dataset.core.demand_generator import create_random_pattern
+from ditec_wdn_dataset.utils.ray_utils import ray_mapping, ChunkFnProto, check_usage_if_verbose
+from ditec_wdn_dataset.core.demand_generator_v2 import generate_demand
+# from ditec_wdn_dataset.core.demand_generator_v2_fixed import generate_demand
 
 from typing import Any, Protocol, Optional
 from copy import deepcopy
@@ -300,9 +300,7 @@ def default_generation_func(
         if is_strict_mode:
             raise ValueError(f"Try to access values of parameter {param_name} from an object dict, but it is unsuccesful")
         elif verbose:
-            print(
-                f"WARNING! param ({param_name}) has an empty value list, such that it is omitted in the random matrix generation"
-            )
+            print(f"WARNING! param ({param_name}) has an empty value list, such that it is omitted in the random matrix generation")
 
     def print_missing_values_for_an_element(is_strict_mode: bool, verbose: bool = True) -> None:
         if is_strict_mode:
@@ -324,9 +322,7 @@ def default_generation_func(
         temp_list = []
         temp_indices = []
         for temp_id, (obj_name, obj) in enumerate(obj_dict):
-            old_value = get_value_internal(
-                obj, param_name, duration=sim_duration, timestep=-1
-            )  # timestep= -1 will take base_value
+            old_value = get_value_internal(obj, param_name, duration=sim_duration, timestep=-1)  # timestep= -1 will take base_value
             if old_value is None:  # get a default value from global config
                 old_value = get_default_value_from_global(param_name, wn)
             if old_value is not None:
@@ -400,9 +396,7 @@ def default_generation_func(
         num_points_list = []
         temp_list = []
         for obj_name, obj in obj_dict:
-            old_value = get_value_internal(
-                obj, param_name, duration=sim_duration, timestep=-1
-            )  # timestep= -1 will take base_value
+            old_value = get_value_internal(obj, param_name, duration=sim_duration, timestep=-1)  # timestep= -1 will take base_value
             if old_value is None:  # get a default value from global config
                 old_value = get_default_value_from_global(param_name, wn)
             if old_value is not None:
@@ -481,15 +475,11 @@ def default_generation_func(
                 single_expected_shape = (num_samples, obj_names_len, max_curve_length)
                 new_values_x = (
                     old_values_x
-                    + np.random.choice([-1.0, 1.0], size=single_expected_shape)
-                    * np.random.random(size=single_expected_shape)
-                    * values[0]
+                    + np.random.choice([-1.0, 1.0], size=single_expected_shape) * np.random.random(size=single_expected_shape) * values[0]
                 )
                 new_values_y = (
                     old_values_y
-                    + np.random.choice([-1.0, 1.0], size=single_expected_shape)
-                    * np.random.random(size=single_expected_shape)
-                    * values[1]
+                    + np.random.choice([-1.0, 1.0], size=single_expected_shape) * np.random.random(size=single_expected_shape) * values[1]
                 )
                 # new_values has shape (num_samples, obj_names_len * max_curve_length * 2) and values (x1,x2,...,y1,y2,...)
                 new_values = np.concatenate([new_values_x, new_values_y], axis=-1)
@@ -511,9 +501,7 @@ def default_generation_func(
             for i in range(num_samples):
                 random_index = random_indices[i][0]
                 (_, obj) = obj_dict[random_index]
-                old_value = get_value_internal(
-                    obj, param_name, duration=sim_duration, timestep=-1
-                )  # timestep= -1 will take base_value
+                old_value = get_value_internal(obj, param_name, duration=sim_duration, timestep=-1)  # timestep= -1 will take base_value
                 if old_value is None:  # get a default value from global config
                     old_value = get_default_value_from_global(param_name, wn)
                 if old_value is not None:
@@ -549,9 +537,7 @@ def default_generation_func(
 
             assert values is not None and len(values) == 1
             vstack_values = np.vstack(temp_list)
-            new_values = (
-                np.tile(vstack_values, (1, obj_names_len)) + np.random.uniform(low=-1, high=1, size=[num_samples, 1]) * values[0]
-            )
+            new_values = np.tile(vstack_values, (1, obj_names_len)) + np.random.uniform(low=-1, high=1, size=[num_samples, 1]) * values[0]
         else:
             print_warning_or_raise_exception(is_strict_mode=STRICT_MODE, verbose=verbose)
             new_values = None  # type:ignore
@@ -567,9 +553,7 @@ def default_generation_func(
             num_points_list = []
             temp_list = []
             for obj_name, obj in obj_dict:
-                old_value = get_value_internal(
-                    obj, param_name, duration=sim_duration, timestep=-1
-                )  # timestep= -1 will take base_value
+                old_value = get_value_internal(obj, param_name, duration=sim_duration, timestep=-1)  # timestep= -1 will take base_value
                 if old_value is None:  # get a default value from global config
                     old_value = get_default_value_from_global(param_name, wn)
                 if old_value is not None:
@@ -621,9 +605,9 @@ def default_generation_func(
     elif strategy == "terrain":
         if len(obj_dict) > 0:
             random_obj: wntre.Node | wntre.Link = obj_dict[0][1]
-            assert (
-                param_name == "elevation" and isinstance(random_obj, wntre.Junction)
-            ), f"Error! We only support terrain strategy for junction_elevation! Get {random_obj.__class__.__name__} (compo)- {param_name} (param)"
+            assert param_name == "elevation" and isinstance(random_obj, wntre.Junction), (
+                f"Error! We only support terrain strategy for junction_elevation! Get {random_obj.__class__.__name__} (compo)- {param_name} (param)"
+            )
             assert values is not None and len(values) == 2
 
             num_cpus = kwargs.get("num_cpus", 1)
@@ -731,9 +715,7 @@ def default_generation_func(
         raise NotImplementedError()
 
     if new_values is not None:
-        assert (
-            new_values.shape == expected_shape
-        ), f"Expected shape = {expected_shape}, but get new_values.shape={new_values.shape}"
+        assert new_values.shape == expected_shape, f"Expected shape = {expected_shape}, but get new_values.shape={new_values.shape}"
     return new_values
 
 
@@ -859,9 +841,7 @@ def wrapper_prepare_simgen_subset_records(
             num_depth_chunks = actual_dim // chunk_depth
             for i in range(num_depth_chunks):
                 if i < num_depth_chunks - 1:
-                    stored_array[current_index : current_index + actual_samples, start : start + chunk_depth] = rows[
-                        :, start : start + chunk_depth
-                    ]
+                    stored_array[current_index : current_index + actual_samples, start : start + chunk_depth] = rows[:, start : start + chunk_depth]
                     start += chunk_depth
                 else:
                     stored_array[current_index : current_index + actual_samples, start:] = rows[:, start:]
@@ -1296,7 +1276,7 @@ def create_curve(
             xs = value[::2]
             ys = value[1::2]
 
-        assert xs.shape == ys.shape, f"create_curve: xs.shape: {xs.shape} != ys.shape: { ys.shape}"
+        assert xs.shape == ys.shape, f"create_curve: xs.shape: {xs.shape} != ys.shape: {ys.shape}"
         # if do_sort
         #   xs and ys will be sorted ascending and descending respectively.
         #   The created curve will have this shape:
@@ -1607,7 +1587,7 @@ def update_and_simulate_wn(
     onames: OrderedDict,
     config: SimConfig,
     record_check_fn_list: list[CheckRecordFn] = [],
-    save_success_inp_path: str = "gigantic_dataset/debug",
+    save_success_inp_path: str = "ditec_wdn_dataset/debug",
 ) -> tuple[dict[str, np.ndarray], list[int]]:
     assert len(batch_indices) == batch_records.shape[0]
 
@@ -1682,7 +1662,7 @@ def update_and_simulate_wn_small_chunk(
     onames: OrderedDict,
     config: SimConfig,
     record_check_fn_list: list[CheckRecordFn] = [],
-    save_success_inp_path: str = "gigantic_dataset/debug",
+    save_success_inp_path: str = "ditec_wdn_dataset/debug",
 ) -> Generator[tuple[dict[str, np.ndarray], list[int]], None, None]:
     assert len(batch_indices) == batch_records.shape[0]
 
@@ -1752,7 +1732,7 @@ class UpSiWorker:
         onames: OrderedDict,
         config: SimConfig,
         record_check_fn_list: list[CheckRecordFn] = [],
-        save_success_inp_path: str = "gigantic_dataset/debug",
+        save_success_inp_path: str = "ditec_wdn_dataset/debug",
     ) -> None:
         self.wn = wn
         self.odims = odims
@@ -1909,16 +1889,12 @@ def copy_inputs_and_save_outputs(
             )
             stored_name_samples[out_stored_name] = 0
         else:
-            out_arr: zarr.Array = zarr_group[
-                out_stored_name
-            ]  # zarr.open_array(out_stored_path, mode='w', write_empty_chunks=False) #type:ignore
+            out_arr: zarr.Array = zarr_group[out_stored_name]  # zarr.open_array(out_stored_path, mode='w', write_empty_chunks=False) #type:ignore
 
         if out_stored_name not in stored_name_samples:
             stored_name_samples[out_stored_name] = 0
 
-        assert sim_output_array.shape[0] == len(
-            success_ids
-        ), f"sim_output_array.shape[0] = {sim_output_array.shape[0]} | success_ids = {success_ids}"
+        assert sim_output_array.shape[0] == len(success_ids), f"sim_output_array.shape[0] = {sim_output_array.shape[0]} | success_ids = {success_ids}"
 
         out_current_runs = 0
         for b in range(sim_output_array.shape[0]):
@@ -2040,7 +2016,7 @@ def single_update_simulate_save_wn(
                 onames,
                 deepcopy(config),
                 record_check_fn_list,
-                "gigantic_dataset/debug",
+                "ditec_wdn_dataset/debug",
             )
 
             sub_stored_name_samples = copy_inputs_and_save_outputs(  # copy_inputs_and_save_outputs2(
@@ -2057,9 +2033,7 @@ def single_update_simulate_save_wn(
             num_success_runs = stored_name_samples[first_output_key] if first_output_key in stored_name_samples else 0
             if config.verbose:
                 pbar.update(1)
-                pbar.set_description(
-                    f"Success ({num_success_runs}) | Expected: ({expected_runs}) | Total ({total_runs})- Processing batches"
-                )
+                pbar.set_description(f"Success ({num_success_runs}) | Expected: ({expected_runs}) | Total ({total_runs})- Processing batches")
 
     del_temp_and_rechunk(
         tmp_stored_name_list=tmp_stored_name_list,
@@ -2087,9 +2061,7 @@ def ray_collect_results(
     del unready_refs
     ready_ref = ready_refs[0]
 
-    tuple_or_generator: (
-        Generator[tuple[dict[str, np.ndarray], list[int]], None, None] | tuple[dict[str, np.ndarray], list[int]]
-    ) = ray.get(ready_ref)
+    tuple_or_generator: Generator[tuple[dict[str, np.ndarray], list[int]], None, None] | tuple[dict[str, np.ndarray], list[int]] = ray.get(ready_ref)
     if isinstance(tuple_or_generator, tuple):  # tuple[dict[str, np.ndarray], list[int]]
         sub_stored_name_samples = copy_inputs_and_save_outputs(  # copy_inputs_and_save_outputs2(
             zarr_group=zarr_group,
@@ -2147,9 +2119,7 @@ def update_process_bar(
             f"Success ({num_success_runs}) | Expected ({expected_runs}) | Total ({total_runs}) | RAM Usage ({used_memory_percentage:.2f})%- Processing batches"
         )
     else:
-        inplaced_pbar.set_description(
-            f"Success ({num_success_runs}) | Expected ({expected_runs}) | Total ({total_runs})- Processing batches"
-        )
+        inplaced_pbar.set_description(f"Success ({num_success_runs}) | Expected ({expected_runs}) | Total ({total_runs})- Processing batches")
 
 
 def ray_update_simulate_save_wn(
@@ -2178,13 +2148,10 @@ def ray_update_simulate_save_wn(
     actual_num_workers = int(config.num_cpus * config.fractional_cpu_usage)
     if config.verbose:
         num_components_per_output = [
-            len(wn.node_name_list) if is_node_simulation_output(sim_output_key) else len(wn.link_name_list)
-            for sim_output_key in config.sim_outputs
+            len(wn.node_name_list) if is_node_simulation_output(sim_output_key) else len(wn.link_name_list) for sim_output_key in config.sim_outputs
         ]
 
-        expected_output_mem_per_upsi_worker = (
-            float(sum(num_components_per_output)) * (config.duration / config.time_step) * config.batch_size
-        )
+        expected_output_mem_per_upsi_worker = float(sum(num_components_per_output)) * (config.duration / config.time_step) * config.batch_size
 
         config_mem_gb = config_mem / ONE_GB_IN_BYTES
         expected_input_mem_gb = expected_input_mem_per_upsi_worker / ONE_GB_IN_BYTES
@@ -2201,9 +2168,7 @@ def ray_update_simulate_save_wn(
                 f"RAM for {actual_num_workers} upsi workers: {plural_config_mem_gb:.2f} GB (Config) | {plural_expected_input_mem_gb:.2f} GB (Expected Input) | {plural_expected_output_mem_gb:.2f} GB (Expected Ouput)"
             )
 
-        expected_input_mem_in_main_process = (
-            sim_set.chunks[0] * sim_set.chunks[1] * 8 * config.num_cpus * config.fractional_cpu_usage
-        )
+        expected_input_mem_in_main_process = sim_set.chunks[0] * sim_set.chunks[1] * 8 * config.num_cpus * config.fractional_cpu_usage
         expected_output_mem_in_main_process = expected_output_mem_per_upsi_worker * config.num_cpus * config.fractional_cpu_usage
         expected_input_mem_in_main_process = expected_input_mem_in_main_process / ONE_GB_IN_BYTES
         expected_output_mem_in_main_process = expected_output_mem_in_main_process / ONE_GB_IN_BYTES
@@ -2211,8 +2176,8 @@ def ray_update_simulate_save_wn(
             f"RAM for main process:  {expected_input_mem_in_main_process:.2f} GB (Expected Input) | {expected_output_mem_in_main_process:.2f} GB (Expected Ouput)"
         )
 
-        print(f"Available RAM: { available_mem/  ONE_GB_IN_BYTES} GB")
-        print(f"Total RAM: { total_mem /  ONE_GB_IN_BYTES} GB")
+        print(f"Available RAM: {available_mem / ONE_GB_IN_BYTES} GB")
+        print(f"Total RAM: {total_mem / ONE_GB_IN_BYTES} GB")
 
     ray_init_wrapper(config, True, object_store_memory=expected_input_mem_per_upsi_worker * actual_num_workers + ONE_GB_IN_BYTES)
     WatcherManager.track(f"Simulation-{inp_id}-ray-loader")
@@ -2427,9 +2392,7 @@ def ray_init_wrapper(config: SimConfig, force_using_ray: bool = False, object_st
                 ray.init(num_cpus=num_cpus, _temp_dir=abs_path, object_store_memory=object_store_memory)  # type:ignore
 
 
-def generate(
-    config: SimConfig, force_using_ray: bool = False, bypass_checking_rules: bool = False, overwatch: bool = False
-) -> list[str]:
+def generate(config: SimConfig, force_using_ray: bool = False, bypass_checking_rules: bool = False, overwatch: bool = False) -> list[str]:
     """generate random matrix and feed random values into components. Then, we simulate and enscapsulate in/out data into zarr
 
     Args:

@@ -5,74 +5,73 @@
 # Purpose: main code
 # ------------------------------
 
-import os
 
+import os
 from typing import Any, Literal
-from time import time
 from tap import Tap
-from gigantic_dataset.dummy.test_components import (
+from ditec_wdn_dataset.opt.opt import (
     create_blueprint_config,
     report,
-    collect_global_statistic_data,
-    collect_all_params,
     find_optimal_config_wrapper,
     find_optimal_config,
 )
 
-# from gigantic_dataset.core.datasets import GidaV3
-# from gigantic_dataset.utils.oatvis import *
-from gigantic_dataset.utils import misc
-from gigantic_dataset.utils.auxil_v8 import fs2zip
-from gigantic_dataset.core import simgen
-from gigantic_dataset.utils.configs import SimConfig
-from gigantic_dataset.dummy import pso22
+from ditec_wdn_dataset.utils.auxil_v8 import fs2zip
+from ditec_wdn_dataset.core import simgen
+from ditec_wdn_dataset.utils.configs import SimConfig
+from ditec_wdn_dataset.opt import pso22
+from ditec_wdn_dataset.vis.denvis import plot_scatter
 
 
-def check_wdn_and_collect_stats(export_path: str = "profiler_report.json"):
-    inp_paths, _ = misc.check_wdns(r"gigantic_dataset\inputs\public")
-    collect_global_statistic_data(inp_paths=inp_paths, export_path=export_path)
+def simulate_report(
+    yaml_path: str,
+    to_zip: bool = False,
+    force_using_ray=False,
+    bypass_checking_rules: bool = False,
+    do_vis: bool = False,
+    do_report: bool = True,
+    overwatch: bool = False,
+):
+    """simulate then report the observed outcomes
 
-
-def simulate_report(yaml_path: str, to_zip: bool = False, force_using_ray=False, bypass_checking_rules: bool = False):
+    Args:
+        yaml_path (str): where your configuration is stored
+        to_zip (bool, optional): flag indicates whether the simulated data is compressed. Defaults to False.
+        force_using_ray (bool, optional): flag indicates whether using ray, good when num cpus == 1. Defaults to False.
+        bypass_checking_rules (bool, optional): flag indicates whether we bypass checking rule. Defaults to False.
+        do_vis (bool, optional): perform visualization if setting True. Defaults to False.
+        do_report (bool, optional): we report stats and shape of parameters. Defaults to True.
+        overwatch (bool, optional): Flag turning memory profile mode. Defaults to False.
+    """
     # generate dataset
-    config = SimConfig().parse_args()
+    config = SimConfig()
+    config._parsed = True
     config._from_yaml(yaml_path=yaml_path, unsafe_load=True)
-    if len(config.inp_paths) <= 0:
-        config.inp_paths = [
-            r"gigantic_dataset\inputs\public\ctown.inp",
-        ]
 
-    output_paths = simgen.generate(config, force_using_ray=force_using_ray, bypass_checking_rules=bypass_checking_rules)
+    # perform simulate given the config from yaml file
+    output_paths = simgen.generate(config, force_using_ray=force_using_ray, bypass_checking_rules=bypass_checking_rules, overwatch=overwatch)
 
     print(f"Successful paths = {output_paths}")
-    if to_zip:
+
+    ###Below functions are optional ###
+
+    # we encourage you to turn to_zip on for the sake of sustainability.
+    if to_zip or do_vis:
         output_paths = fs2zip(output_paths, new_save_path=config.output_path)
 
-    report(output_paths[0], config, report_baseline=True)
+    # for verbose
+    if do_report:
+        if len(output_paths) > 0:
+            report(
+                output_path=output_paths[0],
+                config=config,
+                report_baseline=True,
+                chunk_limit="1 GB",
+            )
 
-
-def lookup_in_out_pump_nodes(blue_print_path: str, lookup_words: list[str] = ["Pump"], skip_words: list[str] = []) -> None:
-    import wntr
-
-    config = SimConfig().parse_args()
-    config._from_yaml(blue_print_path, unsafe_load=True)
-    wn = wntr.network.WaterNetworkModel(config.inp_paths[0])
-    pump_node_names = []
-    for name in wn.junction_name_list:
-        if any([w in name for w in lookup_words]):
-            if len(skip_words) <= 0 or all([w not in name for w in skip_words]):
-                pump_node_names.append(name)
-
-    if pump_node_names:
-        pump_node_names = sorted(pump_node_names)
-        for name in pump_node_names:
-            print(f"- {name}")
-
-
-class MainConfig(Tap):
-    yaml_basename: str
-    task: Literal["opt", "sim"] = "opt"
-    opt_skip_params: list[str] = []
+    # for visualization
+    if do_vis:
+        plot_scatter(zarr_paths=output_paths, profiler_path="profiler_report_new_excluded.json")
 
 
 def optimize(
@@ -112,7 +111,7 @@ def optimize(
 
     Returns:
         str: the path to the optimal config file
-    """
+    """  # noqa: E501
 
     strategy_fn = find_optimal_config if strategy == "dummy" else pso22.find_optimal_config
     latest_yaml_path = find_optimal_config_wrapper(
@@ -136,95 +135,83 @@ def optimize(
     return latest_yaml_path
 
 
-def test_collect_all_params():
-    blue_print_path = r"gigantic_dataset/arguments/testing/ctownactor_muleval22_pipe+roughness_0.14_c7_e0_fun.yaml"
-
-    config = SimConfig()
-    config._from_yaml(blue_print_path, unsafe_load=True)
-    # config._parsed = True
-
-    import wntr
-    import numpy as np
-
-    wn = wntr.network.WaterNetworkModel(
-        r"G:\Other computers\My Laptop\PhD\Codebase\gigantic-dataset\gigantic_dataset\debug\ctown_9_test.inp"
+# always start with Config
+# They are arguments that can be parsed from CLI
+class MainConfig(Tap):
+    yaml_path: str  # an optimization/ simimulation config .yaml
+    task: Literal["opt", "sim", "init"] = (
+        "init"  # `opt` aims for optimization | `sim` stands for simulation | `init` means initize blueprint config given an input file
     )
-    config.duration = 1
-    param_dict: dict[str, np.ndarray] = collect_all_params(
-        wn, time_from="wn", config=config, sim_output_keys=["demand"], exclude_skip_nodes_from_config=True, output_only=False
-    )
-    print(f'max junction_base_demand not skipping j245: = {param_dict["junction_base_demand"].max()}')
-    print(f'max demand not skipping j245: = {param_dict["demand"].max()}')
-    print("$" * 80)
-    config.skip_names.append("J425")
+    opt_skip_params: list[str] = []  # to skip unwanted parameters. By default, we don't skip any of them.
+    to_zip: bool = False  # flag indicates whether the output is zipped (.zarr.zip). Works only when `task=sim`
+    init_input_path: str = ""  # the path to an original input file. Works only when `task=init`
 
-    param_dict: dict[str, np.ndarray] = collect_all_params(
-        wn, time_from="wn", config=config, sim_output_keys=["demand"], exclude_skip_nodes_from_config=True, output_only=False
-    )
-    print(f'max junction_base_demand skipping j245: = {param_dict["junction_base_demand"].max()}')
-    print(f'max demand not skipping j245: = {param_dict["demand"].max()}')
+    def process_args(self):
+        if self.yaml_path[4:] != "yaml":
+            raise ValueError(f"Error! The yaml_basename should containt (.yaml), but get {self.yaml_path}!")
+
+    def configure(self):
+        self.add_argument("--yaml_path", "-y")
+        self.add_argument("--task", "-t")
+        self.add_argument("--opt_skip_params", "-s")
+        self.add_argument("--to_zip", "-z")
+        self.add_argument("--init_input_path", "-i")
 
 
 if __name__ == "__main__":
-    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
-    os.environ["WANDB_API_KEY"] = "155ce6191c02a99fab6dc642bbfd360187924bae"
     os.environ["RAY_worker_register_timeout_seconds"] = "600"  # a considerable sec
-    check_wdn_and_collect_stats(export_path=r"profiler_report_new.json")
 
-    # # This is how to use dummy optim
-    # optimize(
-    #     report_json_path="profiler_report_new.json",  # <- fill the lastest profiler.json
-    #     strategy="dummy",
-    #     yaml_path=r"gigantic_dataset/arguments/init/Richmond_standard.yaml",  # <- example config for dummy
-    #     reinforce_params=True,
-    #     max_iters=8,
-    #     junc_demand_strategy="adg_v2",
-    #     ##parameters of find_optimal_config(...) can be added here
-    #     acceptance_lo_threshold=0.2,
-    #     acceptance_up_threshold=1.0,
-    #     num_cpus=10,
-    # )
+    # The simgen program follows this workflow: init -> opt -> sim
+    # init - create a blueprint config given your wdn
+    #   Start filling your preferrable options
+    # opt - optimize the sampling parameters
+    #   Skippable when your setting is optimized.
+    # sim - perform simulation
 
-    # # This is how to use pso22 optim
+    # NOTE: The code is intensively required RAM and computation units, OOM is expected if you run on a conventional pc
+    # so we recommend running on cluster
+    # Please read `ditec_wdn_dataset/utils/configs` for more details
 
-    # optimize(
-    #     report_json_path="profiler_report_new.json",  # <- fill the lastest profiler.json
-    #     strategy="pso",
-    #     yaml_path=r"gigantic_dataset/arguments/init/ky12.yaml",  # <- example config for pso
-    #     reinforce_params=False,
-    #     max_iters=2,  # keep it small
-    #     junc_demand_strategy="adg_v2",
-    #     ##parameters of pso22.find_optimal_config(...) can be added here
-    #     population_size=10,  # larger is better but slower
-    #     num_cpus=10,  # actual cores on Habrok or your local machine
-    #     num_eval_actors=2,  # number of eval actors
-    #     acceptance_lo_threshold=0.2,
-    #     acceptance_up_threshold=1.0,
-    #     fractional_cpu_usage_per_eval_worker=0.5,  # it means 1 core will evaluate 1 individual. Setting to 0.1 means 1 core will treat 10 individuals
-    #     fractional_cpu_usage_per_upsi_worker=1,  # Inside 1 Eval Worker (assume we set it 1 core), 10 UpSiworker (each has 0.1 core distributed from the 1 core) will accelerate the simulation
-    #     custom_skip_keys=[],
-    #     custom_order_keys=[],
-    #     allow_early_stopping=True,  # If True, whenever the particle satisfies all conditions,  we return it immediately without checking the others
-    #     enforce_range="global_extrema",  # after sampling range from the position vector, we clamp based on: extrema (max/min), quantiles (q3/q1), or iqr (lb,ub). Two anchors: global and local views.
-    # )
+    # get arguments from CLI
+    main_config = MainConfig().parse_args()
 
-    blue_print_path = r"gigantic_dataset/arguments/testing/Anytownactor_muleval22_pipe+diameter_0.93_c59_e3_adgv1.yaml"  # r"gigantic_dataset/arguments/long term/ky18actor_muleval22_pipe+minor_loss_0.62_c8_e0.yaml"
+    if main_config.task == "init":
+        # # to create a blueprint, use this function
+        # the outcome can be seen in `ditec_wdn_dataset/arguments`
+        create_blueprint_config(
+            inp_path=main_config.init_input_path,
+            blueprint_path=main_config.yaml_path,
+        )
+    elif main_config.task == "opt":
+        # the outcome can be seen in `ditec_wdn_dataset/arguments` (by default). They are saved in the folder containing file `main_config.yaml_path`
+        # here, we setup default hyperparameter for pso. Feel free to finetune it
+        optimize(
+            strategy="pso",
+            yaml_path=main_config.yaml_path,
+            reinforce_params=False,
+            max_iters=2,  # keep it small
+            junc_demand_strategy="adg_v2",
+            ######parameters of `pso22.find_optimal_config(...)` can be added here####
+            population_size=10,  # larger is better but slower
+            num_cpus=1,  # actual cores on SLURM or your local machine
+            acceptance_lo_threshold=0.2,
+            acceptance_up_threshold=1.0,
+            fractional_cpu_usage_per_eval_worker=1,  # it means 1 core will evaluate 1 individual. Setting to 0.1 means 1 core will treat 10 individuals  # noqa: E501
+            fractional_cpu_usage_per_upsi_worker=0.1,  # Inside 1 Eval Worker (assume we set it 1 core), 10 UpSiworker (each has 0.1 core distributed from the 1 core) will accelerate the simulation  # noqa: E501
+            custom_skip_keys=[],
+            custom_order_keys=[],
+            allow_early_stopping=True,  # If True, whenever the particle satisfies all conditions,  we return it immediately without checking the others  # noqa: E501
+            enforce_range="global_extrema",  # after sampling range from the position vector, we clamp based on: extrema (max/min), quantiles (q3/q1), or iqr (lb,ub). Two anchors: global and local views.  # noqa: E501
+        )
 
-    # create_blueprint_config(
-    #     report_json_path=r"profiler_report_new.json",  # don't forget add new profiler
-    #     inp_path=r"gigantic_dataset/inputs/public/ky23_v.inp",
-    #     blueprint_path=blue_print_path,
-    #     alter_demand_if_null=True,
-    # )
-
-    blue_print_path = r""
-
-    config = SimConfig()
-    config._parsed = True
-    config._from_yaml(blue_print_path, unsafe_load=True)
-
-    start = time()
-    simulate_report(blue_print_path, bypass_checking_rules=False)
-    end = time()
-    no_async_duration = end - start
-    print(f"Execution time NO_async = {no_async_duration} sec")
+    elif main_config.task == "sim":
+        # simulation
+        # the outcome can be seen in `ditec_wdn_dataset/outputs` (by default) or depending on `config.output_path`
+        simulate_report(
+            main_config.yaml_path,
+            bypass_checking_rules=False,
+            do_vis=False,
+            do_report=True,
+            to_zip=True,
+            overwatch=False,
+        )

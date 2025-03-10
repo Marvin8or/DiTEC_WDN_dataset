@@ -3,6 +3,7 @@
 # Copyright (c) 2024 Huy Truong
 # ------------------------------
 # Purpose: use PSO to find the optimal config
+# Required: Ray, Niapy
 # ------------------------------
 #
 
@@ -34,17 +35,19 @@ from niapy.task import OptimizationType, Task
 from niapy.callbacks import Callback
 from niapy.algorithms.basic import ParticleSwarmAlgorithm
 
-from gigantic_dataset.core.simgen import (
+from ditec_wdn_dataset.core.simgen import (
     get_curve_parameters,
     # get_pattern_parameters,
     generate,
 )
-from gigantic_dataset.utils.configs import SimConfig
-from gigantic_dataset.dummy.test_components import (
+from ditec_wdn_dataset.utils.configs import SimConfig
+from ditec_wdn_dataset.opt.opt import (
     collect_all_params,
     get_success_runs,
 )
-from gigantic_dataset.utils.auxil_v8 import upper_bound_IQR
+from ditec_wdn_dataset.utils.auxil_v8 import upper_bound_IQR
+
+from psutil import cpu_count
 
 
 FITNESS_THRESHOLD: float = 0.1
@@ -190,7 +193,7 @@ class ParallelTask(Task):
             del pool
             return new_fpops
 
-    def eval_batch_w_early_stopping(self, pops: list[np.ndarray]) -> list[float]:
+    def eval_batch_w_early_stopping(self, pops: list[np.ndarray]) -> list[float]:  # noqa: C901
         data_refs = [ray.put(pop) for pop in pops]
         indices = list(range(len(pops)))
         result_dict = {}
@@ -428,9 +431,9 @@ class CPO(Problem):
         self.junc_demand_strategy: Literal["adg", "adg_v2"] = junc_demand_strategy
         self.fractional_cpu_usage_per_upsi_worker = fractional_cpu_usage_per_upsi_worker
         self.num_upsi_workers = num_upsi_workers
-        self.enforce_range: Literal[
-            "global_extrema", "local_extrema", "global_quantiles", "local_quantiles", "global_iqr", "local_iqr"
-        ] = enforce_range
+        self.enforce_range: Literal["global_extrema", "local_extrema", "global_quantiles", "local_quantiles", "global_iqr", "local_iqr"] = (
+            enforce_range
+        )
         super().__init__(self.dim, lower, upper, *args, **kwargs)
 
         self.traces: list[str] = []
@@ -486,9 +489,7 @@ class CPO(Problem):
         if param != "base_demand":
             strategy = "sampling"
             if is_curve:
-                num_points = math.floor(
-                    stat_dict["len"] / stat_dict["num_objects"]
-                )  # int(stat_dict['len'] / stat_dict['num_objects'])
+                num_points = math.floor(stat_dict["len"] / stat_dict["num_objects"])  # int(stat_dict['len'] / stat_dict['num_objects'])
                 values.append(num_points)
         else:
             values = [abs(v) for v in values]
@@ -567,9 +568,7 @@ class CPO(Problem):
         # compute fitness related to range expansion
         range_fitness = self.get_range_fitness(x)
 
-        is_satisfied_all_conditions: bool = (
-            success_ratio >= self.acceptance_lo_threshold and gen_dmd_ubiqr >= self.baseline_dmd_ubiqr
-        )
+        is_satisfied_all_conditions: bool = success_ratio >= self.acceptance_lo_threshold and gen_dmd_ubiqr >= self.baseline_dmd_ubiqr
 
         instant_update_msg: str = "(satisfied)" if is_satisfied_all_conditions else ""
 
@@ -579,7 +578,7 @@ class CPO(Problem):
             sucess_fitness * (self.alpha * range_fitness + (1.0 - self.alpha) * ubiqr_fitness),
         )
 
-        log = f"Individual Evaluated: {instant_update_msg} ! TotalF: {fitness}| SuccessF = {sucess_fitness} | UBIQRF = {ubiqr_fitness} | RangeF = {range_fitness}"
+        log = f"Individual Evaluated: {instant_update_msg} ! TotalF: {fitness}| SuccessF = {sucess_fitness} | UBIQRF = {ubiqr_fitness} | RangeF = {range_fitness}"  # noqa: E501
 
         # logger = CPOManager.setup_logger(self.logger_prefix, self.logger_file)
         # logger.info(log)
@@ -594,9 +593,7 @@ class CPO(Problem):
 
         trial_config = self.vec2config(x, self.tuned_config, altering_compo_param=self.altering_compo_param)
         suffix = datetime.today().strftime("%Y%m%d_%H%M%S_%f")
-        with tempfile.TemporaryDirectory(
-            suffix=suffix, prefix=self.altering_compo_param, ignore_cleanup_errors=True
-        ) as output_temp_path:
+        with tempfile.TemporaryDirectory(suffix=suffix, prefix=self.altering_compo_param, ignore_cleanup_errors=True) as output_temp_path:
             trial_config.temp_path = output_temp_path
             trial_config.output_path = output_temp_path
             trial_config.num_cpus = self.num_upsi_workers
@@ -638,7 +635,7 @@ class CPOManager:
         upper: float = 1.0,
         acceptance_lo_threshold: float = 0.4,
         acceptance_up_threshold: float = 1.0,
-        log_path: str = "gigantic_dataset/log",
+        log_path: str = "ditec_wdn_dataset/log",
         norm_type: Literal["minmax", "znorm"] = "minmax",
         alpha: float = 0.65,
         beta: float = 0.3,
@@ -810,9 +807,6 @@ class DebugCallback(Callback):
         #     self.logger.info(f"{msg}'s config is saved at {new_yaml_path}")
 
 
-from psutil import cpu_count
-
-
 def single_opt_multi_eval_actor(
     order_keys: list[str],
     prefix: str,
@@ -825,9 +819,7 @@ def single_opt_multi_eval_actor(
     fractional_cpu_usage_per_eval_worker: float = 1.0,
     fractional_cpu_usage_per_upsi_worker: float = 1.0,
     allow_early_stopping: bool = True,
-    enforce_range: Literal[
-        "global_extrema", "local_extrema", "global_quantiles", "local_quantiles", "global_iqr", "local_iqr"
-    ] = "global_extrema",
+    enforce_range: Literal["global_extrema", "local_extrema", "global_quantiles", "local_quantiles", "global_iqr", "local_iqr"] = "global_extrema",
 ):
     new_yaml_path = pm.blueprint_yaml_path
     counter = 0
@@ -867,7 +859,7 @@ def single_opt_multi_eval_actor(
     try:
         reordered_keys = order_keys
         for epoch in range(max_epochs):
-            logger.info("#" * 40 + f"START EPOCH {epoch+1}" + "#" * 40)
+            logger.info("#" * 40 + f"START EPOCH {epoch + 1}" + "#" * 40)
             start = time()
             reordered_keys = np.random.permutation(reordered_keys).tolist()
             logger.info(f"reordered_keys ={reordered_keys}")
@@ -877,9 +869,7 @@ def single_opt_multi_eval_actor(
                     continue
                 iter_start = time()
                 required_dim = pm.dim_dict[compo_param]
-                logger.info(
-                    "@" * 20 + f"START_CHECKING {compo_param}! CURRENT YAML PATH: {os.path.basename(new_yaml_path)}" + "@" * 20
-                )
+                logger.info("@" * 20 + f"START_CHECKING {compo_param}! CURRENT YAML PATH: {os.path.basename(new_yaml_path)}" + "@" * 20)
 
                 problem = CPO(
                     altering_compo_param=compo_param,
@@ -947,9 +937,7 @@ def single_opt_multi_eval_actor(
                     best_config._to_yaml(new_yaml_path)
 
                     # logger.info(f'Exported the best config for param {problem.altering_compo_param} at {new_yaml_path}!')
-                    logger.info(
-                        f"SUCCESS: Best fitness {best_fitness} for param {problem.altering_compo_param}! Export to {new_yaml_path} "
-                    )
+                    logger.info(f"SUCCESS: Best fitness {best_fitness} for param {problem.altering_compo_param}! Export to {new_yaml_path} ")
                 else:
                     logger.info(
                         f"REJECTED: Best fitness: {best_fitness} <= {lb_fitness} for param {problem.altering_compo_param}! Reuse the old yaml path!"
@@ -957,10 +945,10 @@ def single_opt_multi_eval_actor(
 
                 counter += 1
                 iter_end = time()
-                logger.info("@" * 40 + f"END_CHECKING {compo_param}| Elapsed time: {iter_end-iter_start} sec" + "@" * 40)
+                logger.info("@" * 40 + f"END_CHECKING {compo_param}| Elapsed time: {iter_end - iter_start} sec" + "@" * 40)
 
             end = time()
-            logger.info("#" * 40 + f"END EPOCH {epoch+1} | Elapsed time: {end-start} sec" + "#" * 40)
+            logger.info("#" * 40 + f"END EPOCH {epoch + 1} | Elapsed time: {end - start} sec" + "#" * 40)
     except Exception as e:
         logger.exception("catch error", exc_info=e)
 
@@ -970,7 +958,7 @@ def single_opt_multi_eval_actor(
 def find_optimal_config(
     blueprint_yaml_path: str,
     report_json_path: str,
-    log_path: str = "gigantic_dataset/log",
+    log_path: str = "ditec_wdn_dataset/log",
     reinforce_params: bool = False,
     relax_q3_condition: bool = False,
     acceptance_lo_threshold: float = 0.4,
@@ -986,9 +974,7 @@ def find_optimal_config(
     custom_order_keys: list[str] = [],
     custom_skip_keys: list[str] = [],
     allow_early_stopping: bool = True,
-    enforce_range: Literal[
-        "global_extrema", "local_extrema", "global_quantiles", "local_quantiles", "global_iqr", "local_iqr"
-    ] = "global_extrema",
+    enforce_range: Literal["global_extrema", "local_extrema", "global_quantiles", "local_quantiles", "global_iqr", "local_iqr"] = "global_extrema",
 ) -> str:
     print(f"blueprint_yaml_path= {blueprint_yaml_path}")
     pm = CPOManager(

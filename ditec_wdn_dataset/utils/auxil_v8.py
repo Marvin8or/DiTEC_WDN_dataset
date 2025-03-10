@@ -31,7 +31,7 @@ import logging
 import json
 from sys import stdout
 
-from gigantic_dataset.utils.configs import (
+from ditec_wdn_dataset.utils.configs import (
     SimConfig,
     TuneConfig,
     Strategy,
@@ -50,7 +50,7 @@ from gigantic_dataset.utils.configs import (
     ADGV2Config,
     AbstractConfig,
 )
-from gigantic_dataset.utils.properties import (
+from ditec_wdn_dataset.utils.properties import (
     JUNCTION_PROPS,
     PIPE_PROPS,
     PUMP_PROPS,
@@ -65,7 +65,7 @@ from gigantic_dataset.utils.properties import (
     ValveProperties,
 )
 
-from gigantic_dataset.utils.misc import get_flow_units
+from ditec_wdn_dataset.utils.misc import get_flow_units
 
 blosc.use_threads = False
 A_HOUR_IN_SECOND = 3600
@@ -480,7 +480,7 @@ def create_curve(
             xs = value[::2]
             ys = value[1::2]
 
-        assert xs.shape == ys.shape, f"create_curve: xs.shape: {xs.shape} != ys.shape: { ys.shape}"
+        assert xs.shape == ys.shape, f"create_curve: xs.shape: {xs.shape} != ys.shape: {ys.shape}"
         value = list(zip(xs, ys))
     else:
         raise NotImplementedError(f"value has type ={type(value)}")
@@ -937,9 +937,9 @@ def recover_zarr(zarr_path: str, new_zarr_path: str, verbose: bool = True):
 
     attrs: dict = g.attrs.asdict()  # type:ignore
 
-    assert set(["index_tracers", "okeys", "odims", "batch_size", "sim_outputs"]).issubset(
-        attrs.keys()
-    ), "Missing one of required keys! The dataset is unable to recover :("
+    assert set(["index_tracers", "okeys", "odims", "batch_size", "sim_outputs"]).issubset(attrs.keys()), (
+        "Missing one of required keys! The dataset is unable to recover :("
+    )
     index_tracers = attrs["index_tracers"]
     okeys = attrs["okeys"]
     odims = attrs["odims"]
@@ -1564,3 +1564,30 @@ def pretty_print(my_dict: dict[str, Any], indent: int = 20) -> None:
             pretty_print(my_dict=v, indent=indent)
         else:
             print(f"{k:<{indent}}:\t{str(v):}\n")
+
+
+def shuffle_list(my_list: list) -> tuple[list, list]:
+    """convert to numpy array, shuffle it and return itself with random ids
+
+    Args:
+        my_list (list): a simple list
+
+    Returns:
+        tuple[list, list]: tuple of shuffled list and random indices
+    """
+
+    if len(my_list) <= 0:
+        return my_list, []
+    arr = np.asarray(my_list)
+
+    random_ids = np.random.permutation(len(my_list))
+    shuffled_arr = arr[random_ids]
+    return shuffled_arr.tolist(), random_ids.tolist()
+
+
+def masking_list(my_list: list, my_mask: list[int]) -> list:
+    if len(my_list) <= 0 or len(my_mask) <= 0:
+        return my_list
+    arr = np.asarray(my_list)
+    shuffled_arr = arr[my_mask]
+    return shuffled_arr.tolist()

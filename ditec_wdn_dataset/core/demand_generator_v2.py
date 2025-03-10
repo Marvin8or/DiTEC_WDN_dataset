@@ -8,9 +8,8 @@ from scipy.signal import savgol_filter
 # from statsmodels.tsa.seasonal import seasonal_decompose
 
 
-def split_wn_by_profile(wn: wntr.network.WaterNetworkModel,
-                        p_commercial: float):
-    graph = wn.to_graph(link_weight={k: v for k, v in wn.query_link_attribute('length').items()})
+def split_wn_by_profile(wn: wntr.network.WaterNetworkModel, p_commercial: float):
+    graph = wn.to_graph(link_weight={k: v for k, v in wn.query_link_attribute("length").items()})
     graph = graph.subgraph(wn.node_name_list).to_undirected()
 
     communities_generator = nx.community.louvain_communities(graph)
@@ -39,11 +38,13 @@ def split_wn_by_profile(wn: wntr.network.WaterNetworkModel,
     return list(households), list(commercial)
 
 
-def generate_24hour_pattern(profile: tuple[int, int, int, int],
-                            num_patterns: int,
-                            samples_per_hour: int,
-                            low_consumption_upper_bound: float,
-                            high_consumption_lower_bound: float):
+def generate_24hour_pattern(
+    profile: tuple[int, int, int, int],
+    num_patterns: int,
+    samples_per_hour: int,
+    low_consumption_upper_bound: float,
+    high_consumption_lower_bound: float,
+):
     """
     Given a consumption profile, it generates a demand pattern for 1 day. The day is divided into 4 time slots
     of 6 hours each. From 00.00 to 06.00, 06.00 to 12.00, 12.00 to 18.00, and 18.00 to 00.00. The consumption
@@ -68,17 +69,20 @@ def generate_24hour_pattern(profile: tuple[int, int, int, int],
     consumption_range = {
         0: (0, low_consumption_upper_bound),
         1: (low_consumption_upper_bound, high_consumption_lower_bound),
-        2: (high_consumption_lower_bound, 1)
+        2: (high_consumption_lower_bound, 1),
     }
 
     # samples_per_hour_tmp = 1 if samples_per_hour < 1 else int(samples_per_hour)
 
     profile = [consumption_range[p] for p in profile]
     patterns = np.hstack(
-        (np.random.uniform(profile[0][0], profile[0][1], size=(num_patterns, samples_per_hour * 6)),
-         np.random.uniform(profile[1][0], profile[1][1], size=(num_patterns, samples_per_hour * 6)),
-         np.random.uniform(profile[2][0], profile[2][1], size=(num_patterns, samples_per_hour * 6)),
-         np.random.uniform(profile[3][0], profile[3][1], size=(num_patterns, samples_per_hour * 6))))
+        (
+            np.random.uniform(profile[0][0], profile[0][1], size=(num_patterns, samples_per_hour * 6)),
+            np.random.uniform(profile[1][0], profile[1][1], size=(num_patterns, samples_per_hour * 6)),
+            np.random.uniform(profile[2][0], profile[2][1], size=(num_patterns, samples_per_hour * 6)),
+            np.random.uniform(profile[3][0], profile[3][1], size=(num_patterns, samples_per_hour * 6)),
+        )
+    )
 
     # if samples_per_hour < 1:
     #     samples_per_day = int(samples_per_hour * 24)
@@ -88,32 +92,36 @@ def generate_24hour_pattern(profile: tuple[int, int, int, int],
     return patterns
 
 
-def generate_daily_component(num_patterns: int,
-                             samples_per_hour: int,
-                             num_samples: int,
-                             duration: int,
-                             profile: tuple[int, int, int, int],
-                             min_noise: float,
-                             max_noise: float,
-                             low_consumption_upper_bound: float,
-                             high_consumption_lower_bound: float):
+def generate_daily_component(
+    num_patterns: int,
+    samples_per_hour: int,
+    num_samples: int,
+    duration: int,
+    profile: tuple[int, int, int, int],
+    min_noise: float,
+    max_noise: float,
+    low_consumption_upper_bound: float,
+    high_consumption_lower_bound: float,
+):
     # samples_per_hour = int(1 / time_step)
     # num_samples = int(duration * samples_per_hour)
 
     num_repetitions = np.ceil(duration / 24).astype(int)
 
-    daily_data = generate_24hour_pattern(profile=profile,
-                                         num_patterns=num_patterns,
-                                         samples_per_hour=samples_per_hour,
-                                         low_consumption_upper_bound=low_consumption_upper_bound,
-                                         high_consumption_lower_bound=high_consumption_lower_bound)
+    daily_data = generate_24hour_pattern(
+        profile=profile,
+        num_patterns=num_patterns,
+        samples_per_hour=samples_per_hour,
+        low_consumption_upper_bound=low_consumption_upper_bound,
+        high_consumption_lower_bound=high_consumption_lower_bound,
+    )
 
     locs = np.zeros((num_patterns, 1))
     scales = np.random.uniform(min_noise, max_noise, size=(num_patterns, 1))
     noise = np.random.normal(loc=locs, scale=scales, size=(num_patterns, num_samples))
 
     daily_data = np.tile(daily_data, num_repetitions)[:, :num_samples] + noise
-    daily_data = (np.cos(daily_data) + np.sin(daily_data))
+    daily_data = np.cos(daily_data) + np.sin(daily_data)
 
     window_size = samples_per_hour * 3 if samples_per_hour > 1 else 2
     daily_data = savgol_filter(daily_data, int(window_size), 1, axis=1)
@@ -124,12 +132,14 @@ def generate_daily_component(num_patterns: int,
     return daily_data
 
 
-def generate_yearly_component(num_patterns: int,
-                              num_samples: int,
-                              yearly_pattern_num_harmonics: int,
-                              summer_amplitude_range: tuple[int, int],
-                              summer_peak: float,
-                              max_noise: float):
+def generate_yearly_component(
+    num_patterns: int,
+    num_samples: int,
+    yearly_pattern_num_harmonics: int,
+    summer_amplitude_range: tuple[int, int],
+    summer_peak: float,
+    max_noise: float,
+):
     hours = np.arange(0, num_samples)
 
     A = np.random.rand(yearly_pattern_num_harmonics)
@@ -154,27 +164,31 @@ def generate_yearly_component(num_patterns: int,
     return yearly_data
 
 
-def generate_random_pattern(num_patterns: int,
-                            samples_per_hour: int,
-                            duration: int,
-                            profile: tuple[int, int, int, int],
-                            min_noise: float,
-                            max_noise: float,
-                            yearly_component: np.ndarray,
-                            low_consumption_upper_bound: float,
-                            high_consumption_lower_bound: float):
+def generate_random_pattern(
+    num_patterns: int,
+    samples_per_hour: int,
+    duration: int,
+    profile: tuple[int, int, int, int],
+    min_noise: float,
+    max_noise: float,
+    yearly_component: np.ndarray,
+    low_consumption_upper_bound: float,
+    high_consumption_lower_bound: float,
+):
     # samples_per_hour = 1 / time_step
     num_samples = int(duration * samples_per_hour)
 
-    daily_component = generate_daily_component(num_patterns=num_patterns,
-                                               samples_per_hour=samples_per_hour,
-                                               num_samples=num_samples,
-                                               duration=duration,
-                                               profile=profile,
-                                               min_noise=min_noise,
-                                               max_noise=max_noise,
-                                               low_consumption_upper_bound=low_consumption_upper_bound,
-                                               high_consumption_lower_bound=high_consumption_lower_bound)
+    daily_component = generate_daily_component(
+        num_patterns=num_patterns,
+        samples_per_hour=samples_per_hour,
+        num_samples=num_samples,
+        duration=duration,
+        profile=profile,
+        min_noise=min_noise,
+        max_noise=max_noise,
+        low_consumption_upper_bound=low_consumption_upper_bound,
+        high_consumption_lower_bound=high_consumption_lower_bound,
+    )
 
     demand_patterns = daily_component + yearly_component
     min_val = np.min(demand_patterns, axis=1).reshape(-1, 1)
@@ -185,23 +199,25 @@ def generate_random_pattern(num_patterns: int,
     return demand_patterns_normalized
 
 
-def generate_demand(wn: wntr.network.WaterNetworkModel,
-                    time_step: float,
-                    duration: int,
-                    yearly_pattern_num_harmonics: int,
-                    summer_amplitude_range: tuple[int, int],
-                    summer_start: float,
-                    summer_rolling_rate: float,
-                    min_p_commercial: float,
-                    max_p_commercial: float,
-                    profile_household: tuple[int, int, int, int],
-                    profile_commercial: tuple[int, int, int, int],
-                    profile_extreme: tuple[int, int, int, int],
-                    min_noise: float,
-                    max_noise: float,
-                    zero_dem_rate: float = 0,
-                    extreme_dem_rate: float = 0,
-                    max_extreme_dem_junctions: int = 2):
+def generate_demand(
+    wn: wntr.network.WaterNetworkModel,
+    time_step: float,
+    duration: int,
+    yearly_pattern_num_harmonics: int,
+    summer_amplitude_range: tuple[int, int],
+    summer_start: float,
+    summer_rolling_rate: float,
+    min_p_commercial: float,
+    max_p_commercial: float,
+    profile_household: tuple[int, int, int, int],
+    profile_commercial: tuple[int, int, int, int],
+    profile_extreme: tuple[int, int, int, int],
+    min_noise: float,
+    max_noise: float,
+    zero_dem_rate: float = 0,
+    extreme_dem_rate: float = 0,
+    max_extreme_dem_junctions: int = 2,
+):
     assert duration > time_step, "duration has to be greater than time step"
 
     samples_per_hour = int(1 / time_step) if time_step <= 1 else 1
@@ -232,8 +248,7 @@ def generate_demand(wn: wntr.network.WaterNetworkModel,
 
     num_patterns = num_hh_patterns + num_comm_patterns + num_zero_demand + num_extreme_demand
 
-    assert num_comm_patterns + num_hh_patterns + num_zero_demand + num_extreme_demand == len(wn.junction_name_list), (
-        "Incorrect number of junctions")
+    assert num_comm_patterns + num_hh_patterns + num_zero_demand + num_extreme_demand == len(wn.junction_name_list), "Incorrect number of junctions"
 
     p_roll = np.random.rand()
     if p_roll < summer_rolling_rate:
@@ -256,46 +271,53 @@ def generate_demand(wn: wntr.network.WaterNetworkModel,
     low_consumption_upper_bound = np.percentile(aux_rand, q=25).item()
     high_consumption_lower_bound = np.percentile(aux_rand, q=75).item()
 
-    yearly_component = generate_yearly_component(num_patterns=num_patterns,
-                                                 num_samples=num_samples,
-                                                 yearly_pattern_num_harmonics=yearly_pattern_num_harmonics,
-                                                 summer_amplitude_range=summer_amplitude_range,
-                                                 summer_peak=summer_peak,
-                                                 max_noise=max_noise)
+    yearly_component = generate_yearly_component(
+        num_patterns=num_patterns,
+        num_samples=num_samples,
+        yearly_pattern_num_harmonics=yearly_pattern_num_harmonics,
+        summer_amplitude_range=summer_amplitude_range,
+        summer_peak=summer_peak,
+        max_noise=max_noise,
+    )
 
-    hh_demand = generate_random_pattern(num_patterns=num_hh_patterns,
-                                        samples_per_hour=samples_per_hour,
-                                        duration=duration,
-                                        profile=profile_household,
-                                        min_noise=min_noise,
-                                        max_noise=max_noise,
-                                        yearly_component=yearly_component[:num_hh_patterns],
-                                        low_consumption_upper_bound=low_consumption_upper_bound,
-                                        high_consumption_lower_bound=high_consumption_lower_bound)
+    hh_demand = generate_random_pattern(
+        num_patterns=num_hh_patterns,
+        samples_per_hour=samples_per_hour,
+        duration=duration,
+        profile=profile_household,
+        min_noise=min_noise,
+        max_noise=max_noise,
+        yearly_component=yearly_component[:num_hh_patterns],
+        low_consumption_upper_bound=low_consumption_upper_bound,
+        high_consumption_lower_bound=high_consumption_lower_bound,
+    )
 
-    comm_demand = generate_random_pattern(num_patterns=num_comm_patterns,
-                                          samples_per_hour=samples_per_hour,
-                                          duration=duration,
-                                          profile=profile_commercial,
-                                          min_noise=min_noise,
-                                          max_noise=max_noise,
-                                          yearly_component=yearly_component[
-                                                           num_hh_patterns:num_hh_patterns + num_comm_patterns],
-                                          low_consumption_upper_bound=low_consumption_upper_bound,
-                                          high_consumption_lower_bound=high_consumption_lower_bound)
+    comm_demand = generate_random_pattern(
+        num_patterns=num_comm_patterns,
+        samples_per_hour=samples_per_hour,
+        duration=duration,
+        profile=profile_commercial,
+        min_noise=min_noise,
+        max_noise=max_noise,
+        yearly_component=yearly_component[num_hh_patterns : num_hh_patterns + num_comm_patterns],
+        low_consumption_upper_bound=low_consumption_upper_bound,
+        high_consumption_lower_bound=high_consumption_lower_bound,
+    )
     # re-scaling of commercial demand
     comm_demand = comm_demand * (1 - low_consumption_upper_bound) + low_consumption_upper_bound
 
     if num_extreme_demand > 0:
-        extreme_demand = generate_random_pattern(num_patterns=num_extreme_demand,
-                                                 samples_per_hour=samples_per_hour,
-                                                 duration=duration,
-                                                 profile=profile_extreme,
-                                                 min_noise=min_noise,
-                                                 max_noise=max_noise,
-                                                 yearly_component=yearly_component[-num_extreme_demand:],
-                                                 low_consumption_upper_bound=low_consumption_upper_bound,
-                                                 high_consumption_lower_bound=high_consumption_lower_bound)
+        extreme_demand = generate_random_pattern(
+            num_patterns=num_extreme_demand,
+            samples_per_hour=samples_per_hour,
+            duration=duration,
+            profile=profile_extreme,
+            min_noise=min_noise,
+            max_noise=max_noise,
+            yearly_component=yearly_component[-num_extreme_demand:],
+            low_consumption_upper_bound=low_consumption_upper_bound,
+            high_consumption_lower_bound=high_consumption_lower_bound,
+        )
 
         # re-scaling of extreme demand
         extreme_demand = extreme_demand * (1 - high_consumption_lower_bound) + high_consumption_lower_bound
@@ -305,10 +327,7 @@ def generate_demand(wn: wntr.network.WaterNetworkModel,
     # assign zeros to zero_demand pattern
     zero_demand = np.full(shape=(num_zero_demand, hh_demand.shape[1]), fill_value=0)
 
-    combined_keys = np.hstack((list(hh_junction_names),
-                               list(comm_junction_names),
-                               list(zero_junctions_names),
-                               list(extreme_junctions_names)))
+    combined_keys = np.hstack((list(hh_junction_names), list(comm_junction_names), list(zero_junctions_names), list(extreme_junctions_names)))
 
     combined_dict = dict(zip(combined_keys, range(num_patterns)))
     nodes_order = np.array([combined_dict[k] for k in wn.junction_name_list])
@@ -331,12 +350,12 @@ def generate_demand(wn: wntr.network.WaterNetworkModel,
             extreme_junction_indexes.append(i)
 
     if time_step > 1:
-        gen_demand = gen_demand[:, :num_samples:time_step][:, :num_samples//time_step]
+        gen_demand = gen_demand[:, :num_samples:time_step][:, : num_samples // time_step]
 
     return gen_demand, hh_junction_indexes, comm_junction_indexes, zero_junction_indexes, extreme_junction_indexes
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TIME_STEP = 52  # sampling rate in hours
     DURATION = 8760  # in hours
     YEARLY_PATTERN_NUM_HARMONICS = 4
@@ -375,7 +394,7 @@ if __name__ == '__main__':
             max_noise=MAX_NOISE,
             zero_dem_rate=ZERO_DEM_RATE,
             extreme_dem_rate=EXTREME_DEM_RATE,
-            max_extreme_dem_junctions=MAX_EXTREME_DEM_JUNCTIONS
+            max_extreme_dem_junctions=MAX_EXTREME_DEM_JUNCTIONS,
         )
 
         # print(f"hh_nodes: {hh_keys}")
@@ -385,7 +404,7 @@ if __name__ == '__main__':
 
     end = time()
     no_async_duration = end - start
-    print(f'Execution time NO_async = {no_async_duration} sec')
+    print(f"Execution time NO_async = {no_async_duration} sec")
 
     # plt.figure(figsize=(15, 4))
     # plt.plot(hh_demand[20], label="hh")

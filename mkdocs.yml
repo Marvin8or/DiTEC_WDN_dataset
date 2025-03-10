@@ -1,7 +1,6 @@
 site_name: GiDA
 nav:
   - Introduction: 
-    - Overview: overview.md
     - Install GiDA: installation.md
     - Quickstart: quickstart.md
   - Tutorials: 

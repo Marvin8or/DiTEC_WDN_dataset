@@ -27,7 +27,7 @@ from wntr.network import WaterNetworkModel
 
 import wntr.network.elements as wntre
 from itertools import compress
-from gigantic_dataset.core.simgen import (
+from ditec_wdn_dataset.core.simgen import (
     get_curve_parameters,
     get_pattern_parameters,
     get_object_dict_by_config,
@@ -38,9 +38,9 @@ from gigantic_dataset.core.simgen import (
     init_water_network,
     Strategy,
 )
-from gigantic_dataset.utils.profiler import WDNProfiler
-from gigantic_dataset.utils.configs import TuneConfig, SimConfig
-from gigantic_dataset.utils.auxil_v8 import (
+from ditec_wdn_dataset.utils.profiler import WDNProfiler
+from ditec_wdn_dataset.utils.configs import TuneConfig, SimConfig
+from ditec_wdn_dataset.utils.auxil_v8 import (
     upper_bound_IQR,
     lower_bound_IQR,
     get_object_name_list_by_component,
@@ -255,7 +255,7 @@ def create_dummy_configs_by_component(
         setattr(tmp_config, tune_name, my_tune_config)
         dummy_config_path = os.path.join(
             dummy_folder,
-            f"{dummy_prefix}_{tune_name.replace('_tune','')}_{strategy_list[i]}_{i}.yaml",
+            f"{dummy_prefix}_{tune_name.replace('_tune', '')}_{strategy_list[i]}_{i}.yaml",
         )
         tmp_config._to_yaml(yaml_path=dummy_config_path)
 
@@ -267,7 +267,7 @@ def find_optimal_config(
     blueprint_yaml_path: str,
     report_json_path: str,
     skip_compo_params: list[str] = [],
-    log_path: str = "gigantic_dataset/log",
+    log_path: str = "ditec_wdn_dataset/log",
     reinforce_params: bool = False,
     relax_q3_condition: bool = False,
     acceptance_lo_threshold: float = 0.4,
@@ -560,7 +560,7 @@ def find_optimal_config(
                 setattr(tuned_config, f"{component}_tune", tuned_component_tune)
 
                 logger.info(
-                    f"Trial {trial+1} / {max_iters} on param {compo_param}: SUCCESS! Success Ratio: {sucess_ratio}! Gen UB IQR: {gen_dmd_ubiqr} >= BL UB IQR: {baseline_dmd_ubiqr}  | Strategy: {strategy} | values = {values}"
+                    f"Trial {trial + 1} / {max_iters} on param {compo_param}: SUCCESS! Success Ratio: {sucess_ratio}! Gen UB IQR: {gen_dmd_ubiqr} >= BL UB IQR: {baseline_dmd_ubiqr}  | Strategy: {strategy} | values = {values}"
                 )
                 rp_tag = "_rp" if reinforce_params else ""
                 new_yaml_path = blueprint_yaml_path[:-5] + f"_{index}" + f"{rp_tag}" + ".yaml"
@@ -568,7 +568,7 @@ def find_optimal_config(
                 break
             else:
                 logger.info(
-                    f"Trial {trial+1} / {max_iters} on param {compo_param}: FAIL! Success Ratio: {sucess_ratio}! Gen UB IQR: {gen_dmd_ubiqr} < BL UB IQR: {baseline_dmd_ubiqr}  | Strategy: {strategy} | values = {values}"
+                    f"Trial {trial + 1} / {max_iters} on param {compo_param}: FAIL! Success Ratio: {sucess_ratio}! Gen UB IQR: {gen_dmd_ubiqr} < BL UB IQR: {baseline_dmd_ubiqr}  | Strategy: {strategy} | values = {values}"
                 )
 
         if not is_found:
@@ -806,7 +806,7 @@ def summary3(
     epsilon = 1e-8
 
     if success > 0:
-        from gigantic_dataset.core.datasets_large import GidaV5
+        from ditec_wdn_dataset.core.datasets_large import GidaV5
 
         print(f"Succes/ Total: {success}/{total}")
         component, is_dynamic = get_component(attr=name)  # type:ignore
@@ -1383,7 +1383,7 @@ def check_wdns(folder_path: str, verbose: bool = True) -> tuple[list[str], list[
     return success_list, failed_list
 
 
-def check_wdn_and_collect_stats(export_path: str = "profiler_report.json", wdn_folder_path: str = r"gigantic_dataset\inputs\public"):
+def check_wdn_and_collect_stats(export_path: str = "profiler_report.json", wdn_folder_path: str = r"ditec_wdn_dataset\inputs\public"):
     inp_paths, _ = check_wdns(wdn_folder_path)
 
     configs = [lookup_skip_nodes_and_parse_to_config(inp_path, skip_reservoir=False) for inp_path in inp_paths]
@@ -1474,8 +1474,8 @@ def create_blueprint_config(
 def find_optimal_config_wrapper(
     strategy_fn: Callable,
     inp_path: str,
-    folder_yaml_path: str = r"gigantic_dataset/arguments",
-    report_json_path: str = r"gigantic_dataset/profiler_report_new.json",
+    folder_yaml_path: str = r"ditec_wdn_dataset/arguments",
+    report_json_path: str = r"ditec_wdn_dataset/profiler_report_new.json",
     yaml_path: Optional[str] = None,
     reinforce_params: bool = False,
     max_iters: int = 2,

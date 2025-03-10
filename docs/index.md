@@ -1,21 +1,36 @@
-# Tut for writer
-TODO: Update later.
-This is the default view and should not be overriden.
+# DiTEC-WDN - The Gigantic Dataset
 
-To create a wiki for your project so-called `Project A`, please do the following steps:
+This work includes a collection of synthetic scenarios devised from 36 **Water Distribution Networks (WDNs)**. 
 
-1. Clone the project at [here](https://github.com/DiTEC-project/DiTEC-project.github.io).
+For the sake of clarity, it would be better to get into familiarized concepts:
 
-2. Run command `pip install mkdocs` to start working on wiki with MKDOCS.
+* **Scenario** denotes as a sequence of snapshots.
 
-3. Create a new directory whose name is matched your project name.
+* **Snapshot** represents a measured steady-state of a particular WDN and is often modelled as an undirect graph.
 
-4. Add markdown files into the directory. Note that each markdown represents a page of the wiki.
+* **Input parameters** includes simulation inputs, such as demands, pipe diameter, and so on.
 
-5. Check `mkdocs.yml` and layout your wiki structure.
+* **Output parameters** includes simulation outcomes which researchers are interested in (e.g., pressure, flow rate, head, ...)
 
-6. For development, run `mkdocs serve` to show the view on localhost.
-
-7. For deployment to the Github Page, follow (this tutorial)[https://www.mkdocs.org/user-guide/deploying-your-docs/]
+Both parameters are described as nodal/edge features in the snapshot graph. Their values are diverse but temporal correlated with those of other snapshots in the **same** scenario. 
+However, in DiTEC-WDN, two scenarios are considered completely different WDNs despite their origin being the same network.
 
 
+# Acknowledgement
+This work is funded by the project DiTEC: Digital Twin for Evolutionary Changes in Water Networks (NWO 19454).
+
+# Citing DiTEC-WDN
+
+If you use the dataset, please cite:
+
+```latex
+
+@misc{huy2025dwd}{
+    title={DiTEC-WDN: a Dataset of Integrated Timeseries, Event, Connectivity for Water Distribution Networks}, 
+    author={Huy Truong and Andr\'{e}s Tello and Alexander Lazovik and Victoria Degeler},
+    year={2025},
+    note = {HT and AT contributed equally to this work. The dataset is linked to a paper submitted to *Nature Scientific Data*.}
+}
+
+
+```

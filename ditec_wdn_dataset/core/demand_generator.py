@@ -29,11 +29,11 @@ class Seasonal(Enum):
 
 
 class Frequency(Enum):
-    Daily = 365.
-    Weekly = 52.
-    Monthly = 12.
-    Quarterly = 4.
-    Semiannually = 2.
+    Daily = 365.0
+    Weekly = 52.0
+    Monthly = 12.0
+    Quarterly = 4.0
+    Semiannually = 2.0
 
     def __str__(self):
         return self.name
@@ -70,10 +70,15 @@ def create_seasonal_component(time_step, duration, num_patterns, seasonal: Seaso
 
     if seasonal == Seasonal.PeriodicOneDay.value:
         # one day pattern
-        x_values = np.concatenate((np.random.uniform(0, 0.2, size=(num_patterns, steps_per_hour * 6)),
-                                   np.random.uniform(0.6, 1.5, size=(num_patterns, steps_per_hour * 6)),
-                                   np.random.uniform(0.4, 1.2, size=(num_patterns, steps_per_hour * 6)),
-                                   np.random.uniform(0, 0.5, size=(num_patterns, steps_per_hour * 6))), axis=1)
+        x_values = np.concatenate(
+            (
+                np.random.uniform(0, 0.2, size=(num_patterns, steps_per_hour * 6)),
+                np.random.uniform(0.6, 1.5, size=(num_patterns, steps_per_hour * 6)),
+                np.random.uniform(0.4, 1.2, size=(num_patterns, steps_per_hour * 6)),
+                np.random.uniform(0, 0.5, size=(num_patterns, steps_per_hour * 6)),
+            ),
+            axis=1,
+        )
         seasonal_pattern = shift_y + amplitude * np.sin(x_values)
         seasonal_pattern = np.tile(seasonal_pattern, num_repetitions)
         seasonal_pattern = savgol_filter(seasonal_pattern, steps_per_hour * 6, 3, axis=1)
@@ -82,9 +87,9 @@ def create_seasonal_component(time_step, duration, num_patterns, seasonal: Seaso
         # random sinusoidal function
         period_cos = np.random.uniform(1.5, 3, size=(num_patterns, 1))
 
-        x = np.linspace(0, 2 * freq * np.pi, num_samples)
+        x = np.linspace(0, 2 * freq * np.pi, num_samples)  # type:ignore
         seasonal_pattern = shift_y + amplitude * np.sin(x) + np.cos(period_cos * x)
-    return seasonal_pattern
+    return seasonal_pattern  # type:ignore
 
 
 def create_random_pattern(time_step: int, duration: int, num_patterns: int, seasonal: Seasonal, freq: Frequency):
@@ -106,32 +111,28 @@ def create_random_pattern(time_step: int, duration: int, num_patterns: int, seas
     steps_per_hour = int(3600 / (time_step * 60))
     num_samples = int(steps_per_hour * duration)
 
-    seasonal_pattern = create_seasonal_component(time_step=time_step,
-                                                 duration=duration,
-                                                 num_patterns=num_patterns,
-                                                 seasonal=seasonal,
-                                                 freq=freq)
+    seasonal_pattern = create_seasonal_component(time_step=time_step, duration=duration, num_patterns=num_patterns, seasonal=seasonal, freq=freq)
 
     # # normal
     locs = np.random.uniform(0.2, 0.6, size=(num_patterns, 1))
     scales = np.random.uniform(0.1, 0.5, size=(num_patterns, 1))
     noise = np.random.normal(loc=locs, scale=scales, size=(num_patterns, num_samples))
 
-    trend = np.random.uniform(-1 * 10 ** -(np.log10(num_samples) + 1.5),
-                              1 * 10 ** -(np.log10(num_samples) + 1.5),
-                              size=(num_patterns, 1)) * range(num_samples)
+    trend = np.random.uniform(-1 * 10 ** -(np.log10(num_samples) + 1.5), 1 * 10 ** -(np.log10(num_samples) + 1.5), size=(num_patterns, 1)) * range(
+        num_samples
+    )
 
-    patterns = noise + trend + seasonal_pattern
+    patterns = noise + trend + seasonal_pattern  # type:ignore
     win_size = steps_per_hour * 2 if steps_per_hour * 2 > 3 else 4
     patterns_smoothed = savgol_filter(patterns, win_size, 3, axis=1)
     # patterns_smoothed = np.clip(patterns_smoothed, 0., np.max(patterns))
 
     mins = np.min(patterns_smoothed, axis=1).reshape(-1, 1)
     maxs = np.max(patterns_smoothed, axis=1).reshape(-1, 1)
-    #min_target = np.random.uniform(0, 0.4, size=(num_patterns, 1))
-    #max_target = np.random.uniform(0.95, 3, size=(num_patterns, 1))
+    # min_target = np.random.uniform(0, 0.4, size=(num_patterns, 1))
+    # max_target = np.random.uniform(0.95, 3, size=(num_patterns, 1))
 
-    patterns_smoothed = ((patterns_smoothed - mins) / (maxs - mins)) # * (max_target - min_target) + min_target
+    patterns_smoothed = (patterns_smoothed - mins) / (maxs - mins)  # * (max_target - min_target) + min_target
 
     return patterns_smoothed
 
@@ -146,20 +147,30 @@ def plot_pattern(pattern, time_step: int, num_days: int):
     steps_per_hour = int(3600 / (time_step * 60))
     x = np.arange(24 * steps_per_hour * num_days)
     fig, ax = plt.subplots(figsize=(20, 5))
-    plt.plot(x, pattern[:len(x)])
+    plt.plot(x, pattern[: len(x)])
     plt.show()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--time_step', help="time_step for the simulation of demand in 'minutes'", default=5, type=int)
-    parser.add_argument('--duration', help="duration of the time steps in 'hours'.", default=8760, type=int)
-    parser.add_argument('--num_patterns', help="total number of demands to create", default=15, type=int)
-    parser.add_argument('--seasonal', help="version of the method to create the seasonal component of the time series",
-                        type=lambda seasonal: Seasonal[seasonal], choices=list(Seasonal), default="PeriodicRand")
-    parser.add_argument('--freq', help="frequency of the seasonal component",
-                        type=lambda freq: Frequency[freq], choices=list(Frequency), default="Daily")
+    parser.add_argument("--time_step", help="time_step for the simulation of demand in 'minutes'", default=5, type=int)
+    parser.add_argument("--duration", help="duration of the time steps in 'hours'.", default=8760, type=int)
+    parser.add_argument("--num_patterns", help="total number of demands to create", default=15, type=int)
+    parser.add_argument(
+        "--seasonal",
+        help="version of the method to create the seasonal component of the time series",
+        type=lambda seasonal: Seasonal[seasonal],
+        choices=list(Seasonal),
+        default="PeriodicRand",
+    )
+    parser.add_argument(
+        "--freq",
+        help="frequency of the seasonal component",
+        type=lambda freq: Frequency[freq],
+        choices=list(Frequency),
+        default="Daily",
+    )
 
     args = parser.parse_args()
 
@@ -175,11 +186,13 @@ if __name__ == '__main__':
     #     plot_pattern(p, time_step=args.time_step, num_days=21)
 
     # Patterns (trend + seasonal + noise) test.
-    patterns = create_random_pattern(time_step=args.time_step,
-                                     duration=args.duration,
-                                     num_patterns=args.num_patterns,
-                                     seasonal=args.seasonal.value,
-                                     freq=args.freq.value)
+    patterns = create_random_pattern(
+        time_step=args.time_step,
+        duration=args.duration,
+        num_patterns=args.num_patterns,
+        seasonal=args.seasonal.value,
+        freq=args.freq.value,
+    )
     # for p in patterns:
     #     print(f"min: {np.min(p):.2f},\tmax:{np.max(p):.2f}")
     #     plot_pattern(p, time_step=args.time_step, num_days=365)
@@ -187,15 +200,14 @@ if __name__ == '__main__':
     #     plot_pattern(p, time_step=args.time_step, num_days=30)
     #     plot_pattern(p, time_step=args.time_step, num_days=7)
 
-    p : np.ndarray = np.vstack(patterns) 
+    p: np.ndarray = np.vstack(patterns)
 
-    print(f'p shape = {p.shape}')
-    print(f'p min = {np.min(p)}')
-    print(f'p max = {np.max(p)}')
-    print(f'p mean = {np.mean(p)}')
-    print(f'p std = {np.std(p)}')
-    
-    
-    #normed_p = (p - np.min(p)) / (np.max(p) - np.min(p))
-    #plot_pattern(p, time_step=args.time_step, num_days=7)
-    #plot_pattern(normed_p, time_step=args.time_step, num_days=7)
+    print(f"p shape = {p.shape}")
+    print(f"p min = {np.min(p)}")
+    print(f"p max = {np.max(p)}")
+    print(f"p mean = {np.mean(p)}")
+    print(f"p std = {np.std(p)}")
+
+    # normed_p = (p - np.min(p)) / (np.max(p) - np.min(p))
+    # plot_pattern(p, time_step=args.time_step, num_days=7)
+    # plot_pattern(normed_p, time_step=args.time_step, num_days=7)

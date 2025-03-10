@@ -161,6 +161,7 @@ cython_debug/
 #.idea/
 
 unpublished/
+*/unpublished/
 .vscode/
 data/
 *.bin
@@ -174,3 +175,4 @@ gigantic_dataset/outputs
 gigantic_dataset/inputs
 gigantic_dataset/temp
 debug/
+

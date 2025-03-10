@@ -41,9 +41,7 @@ def get_inp_paths(
 
 
 def check_wdns(folder_path: str, verbose: bool = True) -> tuple[list[str], list[str]]:
-    inp_paths = [
-        os.path.join(folder_path, file_name) for file_name in os.listdir(folder_path) if file_name[-4:].lower() == ".inp"
-    ]
+    inp_paths = [os.path.join(folder_path, file_name) for file_name in os.listdir(folder_path) if file_name[-4:].lower() == ".inp"]
     failed_list = []
     success_list = []
     for inp in inp_paths:

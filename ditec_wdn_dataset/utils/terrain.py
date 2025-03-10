@@ -40,23 +40,14 @@ def create_ds_terrain(heightmapWidth: int = 65, zrange: tuple[float, float] = (0
         # set the diamond values (the centers of each tile)
         for x in range(0, heightmapWidth - 1, tileWidth):
             for y in range(0, heightmapWidth - 1, tileWidth):
-                cornerSum = (
-                    heightmap[x][y]
-                    + heightmap[x + tileWidth][y]
-                    + heightmap[x][y + tileWidth]
-                    + heightmap[x + tileWidth][y + tileWidth]
-                )
+                cornerSum = heightmap[x][y] + heightmap[x + tileWidth][y] + heightmap[x][y + tileWidth] + heightmap[x + tileWidth][y + tileWidth]
 
                 avg = cornerSum / 4
                 avg += random_list.pop()
 
                 heightmap[x + halfSide][y + halfSide] = avg
 
-        random_list = (
-            -randomness
-            + np.random.rand(heightmapWidth - 1 // halfSide, heightmapWidth - 1 // tileWidth) * randomness
-            - (-randomness)
-        )
+        random_list = -randomness + np.random.rand(heightmapWidth - 1 // halfSide, heightmapWidth - 1 // tileWidth) * randomness - (-randomness)
         random_list = random_list.flatten().tolist()
 
         # set the square values (the midpoints of the sides)

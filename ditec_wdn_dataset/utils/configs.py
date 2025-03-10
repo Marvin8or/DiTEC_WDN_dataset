@@ -414,8 +414,10 @@ class GidaConfig(AbstractConfig):
     do_lazy: bool = False  # if True, gida delays the dataset reading. Useful when we yield a generator to read chunks.
     subset_shuffle: bool = True  # given train/val/test ids, flag indicates whether shuffle this list once before taking the corresponding subset. For temporal split_type, it should be False.  # noqa: E501
     """########################### NEW FEATURES "###########################"""
+    dataset_log_pt_path: str = ""  # if non empty, we load/save subset_shuffle and statistic into this pt file.
     batch_axis_choice: Literal["temporal", "scene", "snapshot"] = "scene"  # which axis is set as batch dimension.
-    do_cache: bool = False  # Flag indicates whether we cache array after first loading. Very fast but OOM can happen.w
+    do_cache: bool = False  # Flag indicates whether we cache array after first loading. Very fast but OOM can happen.
+    split_per_network: bool = True  # If True, foreach network, we split train, valid, test individually (Useful for multiple network joint-training). Otherwise, we concatenate all networks into a single to-be-splitted array # noqa: E501
     """"########################### DEPRECATED SOON "###########################"""
     time_sampling_rate: int = 1  # perform sampling on time dim(V5 only)
     overwatch: bool = False  # Turn on to capture memory snapshots at some defined phases. (V5 only)
@@ -434,3 +436,41 @@ class GidaConfig(AbstractConfig):
 
     def configure(self) -> None:
         self.add_argument("--node_attrs", type=GidaConfig.elelist2tuple)
+
+
+class GidaNSFConfig(GidaConfig):
+    context_length: int = 12  # non-overlapped windows
+
+
+class ModelConfig(AbstractConfig):
+    name: str = "gcn"  # name of the model
+    num_layers: int = 2  # number of layers
+    nc: int = 16  # number of hidden nc
+    act: Literal["relu", "gelu"] = "relu"  # activation
+    has_final_linear: bool = False  # if true, add a linear following the gnn layers
+    weight_path: str = ""  # path storing the model weights.  If empty, we use a new model
+    # do_load: bool = False  # load weights of the model
+
+
+class TrainConfig(AbstractConfig):
+    # do_load: bool = False  # flag represents temporarily global setting for all mdoels
+    model_configs: list[ModelConfig] = []  # involving DL models in this train
+    lr: float = 0.01  # 0.01 #Learning rate. Default is 0.0005
+    weight_decay: float = 5e-4  # weight decay. Default is 0.000006
+    epochs: int = 10  # 0 #number of epochs to train the model
+    mask_rate: float = 0.95  # masking ratio. Default is 0.95
+    criterion: Literal["mse", "mae", "sce", "ce"] = "mse"  # criterion loss. Support mse|sce|mae
+    batch_size: int = 64  # batch size
+    use_data_batch: bool = False  # pass pyg data batch as parameter into model. Set False to fasten training. Default is False
+    device: str = "cuda"  # Training device. If gpu is unavailable, device is set to cpu.
+    norm_type: Literal["znorm", "minmax", "unused"] = "unused"  # normalization type. Support znorm| minmax|unused"
+    task: Literal["supervised", "semi"] = "semi"  # current supporting task
+    """###########################TRACKING EXPERIMENTS SETTINGS################################"""
+    log_method: str = ""  # log method! Support wandb or ''
+    # log_gradient: bool = False #flag indicates keeping track of gradient flow
+    project_name: str = "dev-pretext-train"  # name of tracking project"
+    save_path: str = ""  # Path to store model weights. If empty, we create a unique name
+    log_per_epoch: int = 1  # log every log_per_epoch
+    run_prefix: str = ""  # it helps naming the run on WANDB
+    """#########################################################################################"""
+    num_cpus: int = 10  # for data loader
