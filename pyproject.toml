@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "gigantic_dataset"
+name = "dwd"
 version = "0.1.0"
 description = ""
 authors = ["cuongth95 <truonghuycuong95@gmail.com>", "atello <a.tello@rug.nl>"]
