@@ -25,13 +25,14 @@ MIT license. See the LICENSE file for more details.
 If you use the dataset, please cite:
 
 ```latex
-
-@misc{huy2025dwd}{
-    title={DiTEC-WDN: A Large-Scale Dataset of Water Distribution Network Scenarios under Diverse Hydraulic Conditions}, 
-    author={Huy Truong and Andr\'{e}s Tello and Alexander Lazovik and Victoria Degeler},
-    year={2025},
-    note = {HT and AT contributed equally to this work. The dataset is linked to a paper submitted to *Nature Scientific Data*.}
+@misc{truong2025dwd,
+      title={DiTEC-WDN: A Large-Scale Dataset of Water Distribution Network Scenarios under Diverse Hydraulic Conditions}, 
+      author={Huy Truong and Andrés Tello and Alexander Lazovik and Victoria Degeler},
+      year={2025},
+      eprint={2503.17167},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2503.17167},
+      note = {HT and AT contributed equally to this work. The dataset is linked to a paper submitted to *Nature Scientific Data*.}
 }
-
-
 ```
