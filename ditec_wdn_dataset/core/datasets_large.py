@@ -2,7 +2,11 @@
 # Created on Thu May 16 2024
 # Copyright (c) 2024 Huy Truong
 # ------------------------------
-# Purpose: (Dec 12 2024) BACK UP OF DATASETS_LARGE.PY
+# Purpose: The data interface of DiTEC-WDN.
+# If you use Hugging Face (.parquet), data interface is optional since HF provides a general interface.
+# In the case that you still want to try OUR interface, please try GiDaV7.
+# (Jun 05 2025) several bugs are fixed in this version.
+# (Dec 12 2024) BACK UP OF DATASETS_LARGE.PY
 # ------------------------------
 
 from collections import OrderedDict, defaultdict
@@ -442,7 +446,7 @@ class GidaV6(Dataset):
         for network_index, root in enumerate(self._roots):
             if self.batch_axis_choice == "scene":
                 # arr WILL have shape <merged>(#scenes, #nodes_or_#links, #statics + time_dims * #dynamics)
-                num_samples = root.compute_first_size()
+                num_samples = root.compute_first_size() if self.num_records is None else min(self.num_records, root.compute_first_size())
                 relative_scene_ids = np.arange(num_samples)
                 tuples = (relative_scene_ids, None)
             elif self.batch_axis_choice == "temporal":
@@ -450,7 +454,7 @@ class GidaV6(Dataset):
                 relative_time_ids = np.arange(num_samples)
                 tuples = (None, relative_time_ids)
             elif self.batch_axis_choice == "snapshot":
-                num_scenes = root.compute_first_size()
+                num_scenes = root.compute_first_size() if self.num_records is None else min(self.num_records, root.compute_first_size())
                 time_dim = root.time_dim
                 relative_scene_ids = np.arange(num_scenes).repeat(time_dim)  # .reshape([-1, 1])
                 relative_time_ids = np.tile(np.arange(time_dim), reps=num_scenes)  # .reshape([-1, 1])
@@ -1034,7 +1038,9 @@ class GidaV6(Dataset):
 
     def __getitems__(self, idx: Union[int, np.integer, IndexType]) -> list[BaseData]:
         # return self.get(idx)  # type:ignore
-        batch: list[BaseData] = self.get(idx[0])  # type:ignore
+        # batch: list[BaseData] = self.get(idx[0])  # type:ignore
+        batch: list[BaseData] = self.get(idx)  # type:ignore
+
         batch = batch if self.transform is None else [self.transform(dat) for dat in batch]
         return batch
 
@@ -1070,7 +1076,7 @@ class GidaV6(Dataset):
             "edge_label": getattr(self._roots[0], "sorted_edge_label_attrs"),
         }
 
-        time_dim = self._roots[0].attrs["duration"] // self._roots[0].attrs["time_step"]
+        time_dim = self._roots[0].time_dim  # self._roots[0].attrs["duration"] // self._roots[0].attrs["time_step"]
         param_attrs = which_array_attrs_map[which_array]
         assert param_attrs is not None and len(param_attrs) > 0, f"ERROR! No found paramattrs from which_array=({which_array}): ({param_attrs})"
         channel_splitters = [
@@ -1103,14 +1109,6 @@ class GidaV6(Dataset):
             )
 
         for i in range(len(cat_arrays)):
-            # if do_group_norm:
-            #     # reshape arr from (scenes, #nodes_or_edges, t+1+t+...) ->  (scenes * #nodes_or_edges, t+1+t+...)
-            #     arr = cat_arrays[i]
-            #     cat_arrays[i] = arr.reshape([-1, arr.shape[-1]], limit=self.chunk_limit)
-            # else:
-            #     # everything goes flatten?
-
-            #     cat_arrays.append(arr.reshape([-1, arr.shape[-1]], limit=self.chunk_limit))
             arr = cat_arrays[i]
             cat_arrays[i] = arr.reshape([-1, arr.shape[-1]], limit=self.chunk_limit)
 
@@ -1123,7 +1121,8 @@ class GidaV6(Dataset):
             for i in range(len(channel_splitters)):
                 num_channels = channel_splitters[i]
                 t = flatten_array[:, current_idx : current_idx + num_channels]
-                t = t.flatten()
+
+                # t = t.flatten()
                 current_idx += num_channels
 
                 t_std_val, t_mean_val = t.std(axis=norm_dim), t.mean(axis=norm_dim)
@@ -1131,10 +1130,29 @@ class GidaV6(Dataset):
                 t_min_val, t_max_val = t.min(axis=norm_dim), t.max(axis=norm_dim)
                 # torch.min(t, dim=norm_dim).values, torch.max(t, dim=norm_dim).values
 
-                std_vals.append(t_std_val.reshape([-1]).repeat(num_channels))
-                mean_vals.append(t_mean_val.reshape([-1]).repeat(num_channels))
-                min_vals.append(t_min_val.reshape([-1]).repeat(num_channels))
-                max_vals.append(t_max_val.reshape([-1]).repeat(num_channels))
+                # std_vals.append(t_std_val.reshape([-1]).repeat(num_channels))
+                # mean_vals.append(t_mean_val.reshape([-1]).repeat(num_channels))
+                # min_vals.append(t_min_val.reshape([-1]).repeat(num_channels))
+                # max_vals.append(t_max_val.reshape([-1]).repeat(num_channels))
+
+                if norm_dim is not None:
+                    t_std_val = np.expand_dims(t_std_val, axis=norm_dim)
+
+                    t_mean_val = np.expand_dims(t_mean_val, axis=norm_dim)
+
+                    t_min_val = np.expand_dims(t_min_val, axis=norm_dim)
+
+                    t_max_val = np.expand_dims(t_max_val, axis=norm_dim)
+                else:
+                    t_std_val = t_std_val.reshape([-1]).repeat(num_channels)
+                    t_mean_val = t_mean_val.reshape([-1]).repeat(num_channels)
+                    t_min_val = t_min_val.reshape([-1]).repeat(num_channels)
+                    t_max_val = t_max_val.reshape([-1]).repeat(num_channels)
+
+                std_vals.append(t_std_val)
+                mean_vals.append(t_mean_val)
+                min_vals.append(t_min_val)
+                max_vals.append(t_max_val)
 
             std_val = dac.concatenate(std_vals, axis=channel_dim)
             mean_val = dac.concatenate(mean_vals, axis=channel_dim)

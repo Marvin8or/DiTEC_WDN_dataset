@@ -397,7 +397,7 @@ TuneConfig = Union[
 
 
 class GidaConfig(AbstractConfig):
-    zip_file_paths: list[str]  # .zip or .zarr to the dataset
+    zip_file_paths: list[str] = []  # .zip or .zarr to the dataset
     node_attrs: list[Union[str, tuple]]  # node attrs
     edge_attrs: list[Union[str, tuple]] = []  # edge attrs
     label_attrs: list[Union[str, tuple]] = []  # label atttrs. List can contain either node or edge but elements must be consistent
@@ -418,6 +418,7 @@ class GidaConfig(AbstractConfig):
     batch_axis_choice: Literal["temporal", "scene", "snapshot"] = "scene"  # which axis is set as batch dimension.
     do_cache: bool = False  # Flag indicates whether we cache array after first loading. Very fast but OOM can happen.
     split_per_network: bool = True  # If True, foreach network, we split train, valid, test individually (Useful for multiple network joint-training). Otherwise, we concatenate all networks into a single to-be-splitted array # noqa: E501
+    wdn_names: list[str] = []  # support hugging face. This list should be non-empty (v7) or `zip_file_paths` should be non-empty(v6).
     """"########################### DEPRECATED SOON "###########################"""
     time_sampling_rate: int = 1  # perform sampling on time dim(V5 only)
     overwatch: bool = False  # Turn on to capture memory snapshots at some defined phases. (V5 only)
