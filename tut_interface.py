@@ -30,12 +30,6 @@ def tutorial_v6(gida_yaml_path: str) -> list[GidaV6]:
         # we perform subset_shuffle prior the custom file. If it is empty, we try to load from dataset_log.pt. If it is failed, we create some and save to dataset_log.pt
         custom_subset_shuffle_pt_path = ""
         full_gida.process_subset_shuffle(custom_subset_shuffle_pt_path=custom_subset_shuffle_pt_path, create_and_save_to_dataset_log_if_nonexist=True)
-    else:
-        # we perform sampling on training and validation sets
-        step = full_gida.length // gida_config.num_records
-        assert step > 0
-        full_gida.train_ids = full_gida.train_ids[::step]
-        full_gida.val_ids = full_gida.val_ids[::step]
 
     train_samples = int(actual_num_records * full_gida.split_ratios[0])
     val_samples = int(actual_num_records * full_gida.split_ratios[1])

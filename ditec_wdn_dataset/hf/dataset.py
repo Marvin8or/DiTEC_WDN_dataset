@@ -1,12 +1,5 @@
-#
-# Created on Fri Jun 06 2025
-# Copyright (c) 2025 Huy Truong
-# ------------------------------
-# Purpose: This is the GidaV7, a conversion of core/datasets_large/GiDaV6 but for Hugging Face
-# ------------------------------
-#
-
 import json
+from typing import Optional
 import numpy as np
 import pyarrow.parquet as pq
 from huggingface_hub import hf_hub_download
@@ -14,16 +7,22 @@ import tempfile
 from collections import OrderedDict, defaultdict
 import copy
 from itertools import compress
+import json
 import os
 from typing import Any, Literal, Optional, Sequence, Union
+import numpy as np
 import torch
 from ditec_wdn_dataset.utils.auxil_v8 import (
+    get_adj_list,
     get_object_name_list_by_component,
     is_node_simulation_output,
+    get_curve_parameters,
     shuffle_list,
     masking_list,
     get_all_simulation_output_parameters,
+    is_node,
 )
+import tempfile
 from torch_geometric.data.data import BaseData
 from torch_geometric.data import Dataset, Data, Batch
 
@@ -1179,11 +1178,13 @@ class GidaV7(Dataset):
         return cat_array
 
     def get(self, idx: int | Sequence) -> Any:
-        # return Data or list[Data]
+        assert self._indices is not None
         if isinstance(idx, int):
-            fids: list[int] = [idx]
+            fids: list[int] = self._indices[idx]  # [idx]  #
         else:
-            fids: list[int] = list(idx)
+            idx_list = np.asarray(idx).flatten().tolist()
+
+            fids: list[int] = [self._indices[i] for i in idx_list]  # idx_list  #
 
         batch_size = len(fids)
 
@@ -1237,7 +1238,8 @@ class GidaV7(Dataset):
         bool, will return a subset of the dataset at the specified indices.
         """
         if isinstance(idx, (int, np.integer)) or (isinstance(idx, Tensor) and idx.dim() == 0) or (isinstance(idx, np.ndarray) and np.isscalar(idx)):
-            data = self.get(self.indices()[idx])[0]  # type:ignore
+            # data = self.get(self.indices()[idx])[0]  # type:ignore
+            data = self.get([idx])[0]  # type:ignore
             data = data if self.transform is None else self.transform(data)
             return data
 
@@ -1250,6 +1252,7 @@ class GidaV7(Dataset):
         # return self.get(idx)  # type:ignore
         # batch: list[BaseData] = self.get(idx[0])  # type:ignore
         batch: list[BaseData] = self.get(idx)  # type:ignore
+
         batch = batch if self.transform is None else [self.transform(dat) for dat in batch]
         return batch
 

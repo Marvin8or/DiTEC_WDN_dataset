@@ -2,11 +2,7 @@
 # Created on Thu May 16 2024
 # Copyright (c) 2024 Huy Truong
 # ------------------------------
-# Purpose: The data interface of DiTEC-WDN.
-# If you use Hugging Face (.parquet), data interface is optional since HF provides a general interface.
-# In the case that you still want to try OUR interface, please try GiDaV7.
-# (Jun 05 2025) several bugs are fixed in this version.
-# (Dec 12 2024) BACK UP OF DATASETS_LARGE.PY
+# Purpose: (Dec 12 2024) BACK UP OF DATASETS_LARGE.PY
 # ------------------------------
 
 from collections import OrderedDict, defaultdict
@@ -272,6 +268,7 @@ class GidaV6(Dataset):
         self.subset_shuffle = subset_shuffle
         self.train_shuffle_ids, self.val_shuffle_ids, self.test_shuffle_ids = [], [], []
         self.dataset_log_pt_path = dataset_log_pt_path
+
         # allow user customize function here
         self.custom_process()
 
@@ -283,15 +280,6 @@ class GidaV6(Dataset):
         if self._indices is None:
             self.update_indices()
 
-    def update_indices(self) -> None:
-        # update _indices
-        attempted_ids = self.train_ids + self.val_ids + self.test_ids
-        if len(attempted_ids) > 0:
-            self._indices = attempted_ids
-        else:
-            assert self._index_map is not None and len(self._index_map) > 0
-            self._indices = list(self._index_map.keys())
-
     def custom_process(self) -> None:
         # load arrays from zip file (and input_paths)
         self.length, self._index_map, self._network_map, self._num_samples_per_network_list = self.compute_indices(
@@ -301,6 +289,69 @@ class GidaV6(Dataset):
 
         self.train_ids, self.val_ids, self.test_ids = self.compute_subset_ids_by_ratio(self.split_ratios, num_samples=self.length)
 
+    def update_indices(self) -> None:
+        # update _indices
+        attempted_ids = self.train_ids + self.val_ids + self.test_ids
+        if len(attempted_ids) > 0:
+            self._indices = attempted_ids
+        else:
+            assert self._index_map is not None and len(self._index_map) > 0
+            self._indices = list(self._index_map.keys())
+
+    def _internal_subset_shuffle(
+        self, sampling_strategy: Literal["default", "random"] = "default"
+    ) -> tuple[list[int], list[int], list[int], list[int], list[int], list[int]]:
+        if sampling_strategy == "default":
+            new_train_ids, train_shuffle_ids = shuffle_list(self.train_ids)
+            new_val_ids, val_shuffle_ids = shuffle_list(self.val_ids)
+            new_test_ids, test_shuffle_ids = shuffle_list(self.test_ids)
+            return new_train_ids, new_val_ids, new_test_ids, train_shuffle_ids, val_shuffle_ids, test_shuffle_ids
+        elif sampling_strategy == "random":
+            train_ids = np.asarray(self.train_ids)
+            val_ids = np.asarray(self.val_ids)
+            test_ids = np.asarray(self.test_ids)
+
+            train_shuffle_ids = []
+            val_shuffle_ids = []
+            test_shuffle_ids = []
+            start_train_idx = start_val_idx = start_test_idx = 0
+            for network_length in self._num_samples_per_network_list:
+                network_num_trains = int(network_length * self.split_ratios[0])
+                network_num_vals = int(network_length * self.split_ratios[1])
+                network_num_tests = network_length - network_num_trains - network_num_vals
+
+                # extract network subset, shuffle, reassign
+                tmp_subset = train_ids[start_train_idx : start_train_idx + network_num_trains]
+                tmp_shuffle_ids = np.random.permutation(network_num_trains)
+                tmp_subset = tmp_subset[tmp_shuffle_ids]
+                train_ids[start_train_idx : start_train_idx + network_num_trains] = tmp_subset
+                train_shuffle_ids.extend(start_train_idx + tmp_shuffle_ids)
+
+                tmp_subset = val_ids[start_val_idx : start_val_idx + network_num_vals]
+                tmp_shuffle_ids = np.random.permutation(network_num_vals)
+                tmp_subset = tmp_subset[tmp_shuffle_ids]
+                val_ids[start_val_idx : start_val_idx + network_num_vals] = tmp_subset
+                val_shuffle_ids.extend(start_val_idx + tmp_shuffle_ids)
+
+                tmp_subset = test_ids[start_test_idx : start_test_idx + network_num_tests]
+                tmp_shuffle_ids = np.random.permutation(network_num_tests)
+                tmp_subset = tmp_subset[tmp_shuffle_ids]
+                test_ids[start_test_idx : start_test_idx + network_num_tests] = tmp_subset
+                test_shuffle_ids.extend(start_test_idx + tmp_shuffle_ids)
+
+                # update start indices
+                start_train_idx += network_num_trains
+                start_val_idx += network_num_vals
+                start_test_idx += network_num_tests
+
+            # assert np.allclose(train_ids, np.asarray(self.train_ids)[train_shuffle_ids])
+            # assert np.allclose(val_ids, np.asarray(self.val_ids)[val_shuffle_ids])
+            # assert np.allclose(test_ids, np.asarray(self.test_ids)[test_shuffle_ids])
+            return train_ids.tolist(), val_ids.tolist(), test_ids.tolist(), train_shuffle_ids, val_shuffle_ids, test_shuffle_ids
+
+        else:
+            raise NotImplementedError
+
     def process_subset_shuffle(self, custom_subset_shuffle_pt_path: str = "", create_and_save_to_dataset_log_if_nonexist: bool = True):
         if self.subset_shuffle:
             if custom_subset_shuffle_pt_path != "":
@@ -309,11 +360,15 @@ class GidaV6(Dataset):
                 # we first check whether the pt file exists. If yes, we load train/val/test ids
                 if not self.load_shuffle_indices_from_disk(sanity_check=True):
                     # otherwise, we perform shuffle and store ids in a saving folder
-                    new_train_ids, self.train_shuffle_ids = shuffle_list(self.train_ids)
-                    new_val_ids, self.val_shuffle_ids = shuffle_list(self.val_ids)
-                    new_test_ids, self.test_shuffle_ids = shuffle_list(self.test_ids)
+
+                    new_train_ids, new_val_ids, new_test_ids, train_shuffle_ids, val_shuffle_ids, test_shuffle_ids = self._internal_subset_shuffle(
+                        sampling_strategy="random"
+                    )
+
                     if self.dataset_log_pt_path != "" and create_and_save_to_dataset_log_if_nonexist:
-                        self.save_shuffle_indices_to_disk()
+                        self.save_shuffle_indices_to_disk(
+                            self.train_ids, self.val_ids, self.test_ids, train_shuffle_ids, val_shuffle_ids, test_shuffle_ids
+                        )
                     else:
                         print(
                             "WARN! Subset shuffle indices cannot be saved as `dataset_log_pt_path` is empty or `do_save_to_dataset_log` is set to False in Gida Interface! You cannot re-load these ids in the inference or next train!",  # noqa: E501
@@ -325,18 +380,27 @@ class GidaV6(Dataset):
                     self.test_ids = new_test_ids
             self.update_indices()
 
-    def save_shuffle_indices_to_disk(self) -> None:
+    def save_shuffle_indices_to_disk(
+        self,
+        ori_train_ids: list[int],
+        ori_val_ids: list[int],
+        ori_test_ids: list[int],
+        train_shuffle_ids: list[int],
+        val_shuffle_ids: list[int],
+        test_shuffle_ids: list[int],
+    ) -> None:
         assert self.dataset_log_pt_path != "", "ERROR! dataset_log_pt_path should not be empty!"
         assert self.dataset_log_pt_path[-4:] == ".pth" or self.dataset_log_pt_path[-3:] == ".pt", (
             f"ERROR! dataset_log_pt_path is invalid. Get self.dataset_log_pt_path = ({self.dataset_log_pt_path})"
         )
         my_dict = {
-            "train_ids": self.train_ids,
-            "val_ids": self.val_ids,
-            "test_ids": self.test_ids,
-            "train_shuffle_ids": self.train_shuffle_ids,
-            "val_shuffle_ids": self.val_shuffle_ids,
-            "test_shuffle_ids": self.test_shuffle_ids,
+            "train_ids": ori_train_ids,
+            "val_ids": ori_val_ids,
+            "test_ids": ori_test_ids,
+            "train_shuffle_ids": train_shuffle_ids,
+            "val_shuffle_ids": val_shuffle_ids,
+            "test_shuffle_ids": test_shuffle_ids,
+            "zip_file_paths": self.zip_file_paths,
         }
 
         if os.path.exists(self.dataset_log_pt_path):
@@ -353,6 +417,7 @@ class GidaV6(Dataset):
 
             if sanity_check:
                 try:
+                    assert set(my_dict["zip_file_paths"]) == set(self.zip_file_paths)
                     assert set(my_dict["train_ids"]) == set(self.train_ids)
                     assert set(my_dict["val_ids"]) == set(self.val_ids)
                     assert set(my_dict["test_ids"]) == set(self.test_ids)
@@ -392,6 +457,11 @@ class GidaV6(Dataset):
             expected_valid_samples = int(num_samples * split_ratios[1])
             expected_test_samples = num_samples - expected_train_samples - expected_valid_samples
             flatten_ids = np.asarray(list(self._index_map.keys()))
+
+            # per_network_train_samples = expected_train_samples // len_of_list
+            # per_network_valid_samples = expected_valid_samples // len_of_list
+            # per_network_test_samples = expected_test_samples // len_of_list
+
             current_nid = 0
             for i, network_num_samples in enumerate(self._num_samples_per_network_list):
                 network_flatten_ids = flatten_ids[current_nid : current_nid + network_num_samples]
@@ -423,14 +493,120 @@ class GidaV6(Dataset):
                     network_val_ids = network_val_ids[: expected_valid_samples - len(val_ids)]
                     network_test_ids = network_test_ids[: expected_test_samples - len(test_ids)]
 
+                #     network_train_ids = network_train_ids[:per_network_train_samples]
+                #     network_val_ids = network_val_ids[:per_network_valid_samples]
+                #     network_test_ids = network_test_ids[:per_network_test_samples]
+                # else:
+                #     network_train_ids = network_train_ids[:per_network_train_samples]
+                #     network_val_ids = network_val_ids[:per_network_valid_samples]
+                #     network_test_ids = network_test_ids[:per_network_test_samples]
+
                 train_ids.extend(network_train_ids.tolist())
                 val_ids.extend(network_val_ids.tolist())
                 test_ids.extend(network_test_ids.tolist())
                 current_nid += network_num_samples
 
-            assert expected_train_samples == len(train_ids)
-            assert expected_valid_samples == len(val_ids)
-            assert expected_test_samples == len(test_ids)
+            # assert expected_train_samples == len(train_ids)
+            # assert expected_valid_samples == len(val_ids)
+            # assert expected_test_samples == len(test_ids)
+
+        return train_ids, val_ids, test_ids
+
+    def _compute_subset_ids(
+        self,
+        split_ratios: tuple[float, float, float],
+        num_samples: int,
+        custom_subset_shuffle_pt_path: str,
+        create_and_save_to_dataset_log_if_nonexist: bool,
+    ) -> tuple[list[int], list[int], list[int]]:
+        train_ids, val_ids, test_ids = [], [], []
+        len_of_list = len(self._num_samples_per_network_list)
+        num_trains = int(num_samples * split_ratios[0])
+        num_vals = int(num_samples * split_ratios[1])
+        num_tests = num_samples - num_trains - num_vals
+        if not self.split_per_network or len_of_list == 1:
+            left = int(self.length * split_ratios[0])
+            right = int(left + self.length * split_ratios[1])
+            flatten_ids = np.asarray(list(self._index_map.keys()))
+            train_ids = flatten_ids[:left]
+            val_ids = flatten_ids[left:right]
+            test_ids = flatten_ids[right:]
+            len_train_ids = len(train_ids)
+            len_val_ids = len(val_ids)
+            len_test_ids = len(test_ids)
+            if self.subset_shuffle:
+                train_ids = train_ids[np.random.permutation(len_train_ids)]
+                val_ids = val_ids[np.random.permutation(len_val_ids)]
+                test_ids = test_ids[np.random.permutation(len_test_ids)]
+            # second-level triming
+            train_ids = train_ids[:num_trains].tolist()
+            val_ids = val_ids[:num_vals].tolist()
+            test_ids = test_ids[:num_tests].tolist()
+        else:
+            # to split per network, we compute train/val/test individually
+            # degree of freedom will be (len_of_list - 1)
+            expected_train_samples = int(self.length * split_ratios[0])
+            expected_valid_samples = int(self.length * split_ratios[1])
+            expected_test_samples = self.length - expected_train_samples - expected_valid_samples
+            flatten_ids = np.asarray(list(self._index_map.keys()))
+
+            indi_num_trains = num_trains // len_of_list
+            indi_num_vals = num_vals // len_of_list
+            indi_num_tests = num_tests // len_of_list
+
+            current_nid = 0
+            for i, network_num_samples in enumerate(self._num_samples_per_network_list):
+                network_flatten_ids = flatten_ids[current_nid : current_nid + network_num_samples]
+
+                if self.batch_axis_choice == "snapshot":
+                    # with snapshots, we still split by scence to ensure the scenario independence
+                    # f_0-> (n_0, t_0), f_1 -> (n_0, t_1), ..., f_T -> (n_0, t_T), f_T+1 -> (n_1, t_0), ...
+                    time_dim = self._roots[i].time_dim
+                    num_scenes = len(network_flatten_ids) // time_dim
+                    left = int(num_scenes * split_ratios[0])
+                    right = int(left + num_scenes * split_ratios[1])
+
+                    left = left * time_dim
+                    right = right * time_dim
+
+                    network_train_ids = network_flatten_ids[:left]
+                    network_val_ids = network_flatten_ids[left:right]
+                    network_test_ids = network_flatten_ids[right:]
+
+                else:
+                    left = int(network_num_samples * split_ratios[0])
+                    right = int(left + network_num_samples * split_ratios[1])
+                    network_train_ids = network_flatten_ids[:left]
+                    network_val_ids = network_flatten_ids[left:right]
+                    network_test_ids = network_flatten_ids[right:]
+
+                len_train_ids = len(train_ids)
+                len_val_ids = len(val_ids)
+                len_test_ids = len(test_ids)
+                if i == len_of_list - 1:
+                    network_train_ids = network_train_ids[: expected_train_samples - len_train_ids]
+                    network_val_ids = network_val_ids[: expected_valid_samples - len_val_ids]
+                    network_test_ids = network_test_ids[: expected_test_samples - len_test_ids]
+
+                # second-level triming
+                if self.subset_shuffle:
+                    network_train_ids = network_train_ids[np.random.permutation(len_train_ids)]
+                    network_val_ids = network_val_ids[np.random.permutation(len_val_ids)]
+                    network_test_ids = network_test_ids[np.random.permutation(len_test_ids)]
+
+                if i < len_of_list - 1:
+                    network_train_ids = network_train_ids[:indi_num_trains]
+                    network_val_ids = network_val_ids[:indi_num_vals]
+                    network_test_ids = network_test_ids[:indi_num_tests]
+                else:
+                    network_train_ids = network_train_ids[: num_trains - len(train_ids)]
+                    network_val_ids = network_val_ids[: num_vals - len(val_ids)]
+                    network_test_ids = network_test_ids[: num_tests - len(test_ids)]
+                # TODO: Dealing with sampling strategy
+                train_ids.extend(network_train_ids.tolist())
+                val_ids.extend(network_val_ids.tolist())
+                test_ids.extend(network_test_ids.tolist())
+                current_nid += network_num_samples
 
         return train_ids, val_ids, test_ids
 
@@ -763,6 +939,7 @@ class GidaV6(Dataset):
         self,
         ids: list[int],
         num_records: Optional[int] = None,
+        sampling_strategy: Literal["sequential", "interval"] = "sequential",
         **kwargs: Any,
     ) -> Dataset:
         """get subset by computed ids
@@ -775,11 +952,23 @@ class GidaV6(Dataset):
             Dataset: a subset from GiDA
         """
         dataset = copy.copy(self)
-        dataset._indices = ids[:num_records]
-        dataset.length = len(dataset._indices)
-
         for k, v in kwargs.items():
             setattr(dataset, k, v)
+
+        if sampling_strategy == "sequential":
+            dataset._indices = ids[:num_records]
+        elif sampling_strategy == "interval":
+            if num_records is None:
+                dataset._indices = ids
+            else:
+                step_size = max(1, len(ids) // max(len(self._roots), num_records))
+
+                tmp_ids = ids[::step_size]
+                assert len(tmp_ids) >= num_records
+
+                dataset._indices = tmp_ids[:num_records]
+        dataset.length = len(dataset._indices)
+
         return dataset
 
     def get_and_cache_if_need(self, root: Root, key: str, indices: list[tuple[int | None, int | None]], do_cache: bool = False) -> np.ndarray:
@@ -970,10 +1159,13 @@ class GidaV6(Dataset):
 
     def get(self, idx: int | Sequence) -> Any:
         # return Data or list[Data]
+        assert self._indices is not None
         if isinstance(idx, int):
-            fids: list[int] = [idx]
+            fids: list[int] = self._indices[idx]  # [idx]  #
         else:
-            fids: list[int] = list(idx)
+            idx_list = np.asarray(idx).flatten().tolist()
+
+            fids: list[int] = [self._indices[i] for i in idx_list]  # idx_list  #
 
         batch_size = len(fids)
 
@@ -1015,6 +1207,10 @@ class GidaV6(Dataset):
         assert counter == batch_size
         return batch  # type:ignore
 
+    def indices(self) -> Sequence:
+        assert self._indices is not None
+        return self._indices
+
     def __getitem__(
         self,
         idx: Union[int, np.integer, IndexType],
@@ -1027,7 +1223,8 @@ class GidaV6(Dataset):
         bool, will return a subset of the dataset at the specified indices.
         """
         if isinstance(idx, (int, np.integer)) or (isinstance(idx, Tensor) and idx.dim() == 0) or (isinstance(idx, np.ndarray) and np.isscalar(idx)):
-            data = self.get(self.indices()[idx])[0]  # type:ignore
+            # data = self.get(self.indices()[idx])[0]  # type:ignore
+            data = self.get([idx])[0]  # type:ignore
             data = data if self.transform is None else self.transform(data)
             return data
 
@@ -1088,17 +1285,19 @@ class GidaV6(Dataset):
 
         cat_arrays: list[dac.Array] = []
 
-        batch_indices = np.array_split(self._indices, num_batches)
+        batch_indices = np.array_split(np.arange(len(self.indices())), num_batches)
 
         selected_attr_key = which_array_attr_map[which_array]
         for bids in batch_indices:
-            data_list: list = self.get(bids.tolist())
-            batch = Batch.from_data_list(data_list)
-            batch_att_array: Tensor = getattr(batch, selected_attr_key)
-            if batch_att_array.shape[-1] != sum_channels:
-                are_all_same_as_sum_channels = False
-            dac_arr: dac.Array = dac.from_array(batch_att_array.numpy())
-            cat_arrays.append(dac_arr)
+            bids_list = bids.tolist()
+            if bids_list:
+                data_list: list = self.get(bids_list)
+                batch = Batch.from_data_list(data_list)
+                batch_att_array: Tensor = getattr(batch, selected_attr_key)
+                if batch_att_array.shape[-1] != sum_channels:
+                    are_all_same_as_sum_channels = False
+                dac_arr: dac.Array = dac.from_array(batch_att_array.numpy())
+                cat_arrays.append(dac_arr)
 
         is_norm_dim_different_from_channel_dim: bool = norm_dim != -1 and norm_dim != len(cat_arrays[0].shape) - 1
         do_group_norm: bool = is_norm_dim_different_from_channel_dim and are_all_same_as_sum_channels and self.batch_axis_choice != "snapshot"
