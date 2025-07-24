@@ -147,7 +147,7 @@ class MainConfig(Tap):
     init_input_path: str = ""  # the path to an original input file. Works only when `task=init`
 
     def process_args(self):
-        if self.yaml_path[4:] != "yaml":
+        if self.yaml_path[-4:] != "yaml":
             raise ValueError(f"Error! The yaml_basename should containt (.yaml), but get {self.yaml_path}!")
 
     def configure(self):
@@ -193,12 +193,30 @@ if __name__ == "__main__":
             junc_demand_strategy="adg_v2",
             ######parameters of `pso22.find_optimal_config(...)` can be added here####
             population_size=10,  # larger is better but slower
-            num_cpus=1,  # actual cores on SLURM or your local machine
+            num_cpus=16,  # actual cores on SLURM or your local machine
             acceptance_lo_threshold=0.2,
             acceptance_up_threshold=1.0,
             fractional_cpu_usage_per_eval_worker=1,  # it means 1 core will evaluate 1 individual. Setting to 0.1 means 1 core will treat 10 individuals  # noqa: E501
             fractional_cpu_usage_per_upsi_worker=0.1,  # Inside 1 Eval Worker (assume we set it 1 core), 10 UpSiworker (each has 0.1 core distributed from the 1 core) will accelerate the simulation  # noqa: E501
-            custom_skip_keys=[],
+            custom_skip_keys=["tank+elevation",
+                              "tank+diameter",
+                              "tank+overflow",
+                              "tank+min_vol",
+                              "junction+elevation",
+                              "pipe+diameter",
+                              "pipe+minor_loss",
+                              "pipe+length",
+                              "pipe+wall_coeff",
+                              "head_pump+energy_price",
+                              "head_pump+energy_pattern",
+                              "head_pump+speed_pattern_name",
+                              "head_pump+pump_curve_name",
+                              "power_pump+energy_price",
+                              "power_pump+energy_pattern",
+                              "power_pump+speed_pattern_name",
+                              "power_pump+pump_curve_name",
+                              "gpv+headloss_curve_name"
+                              ],
             custom_order_keys=[],
             allow_early_stopping=True,  # If True, whenever the particle satisfies all conditions,  we return it immediately without checking the others  # noqa: E501
             enforce_range="global_extrema",  # after sampling range from the position vector, we clamp based on: extrema (max/min), quantiles (q3/q1), or iqr (lb,ub). Two anchors: global and local views.  # noqa: E501

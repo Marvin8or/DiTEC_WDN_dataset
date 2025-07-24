@@ -771,7 +771,7 @@ def fs2zip(zarr_paths: list, new_save_path: str = r"gigantic-dataset\outputs") -
             else:
                 new_arr = old_arr
 
-            print("Values of {n} are saved")
+            print(f"Values of {n} are saved")
         print(root.info)
         new_store.close()
         new_zip_paths.append(new_path)

@@ -1441,7 +1441,8 @@ def update_single_wn(
     sim_duration: int = config.duration
     time_step: int = config.time_step
 
-    time_dim = (1 if sim_duration <= 1 else sim_duration) // time_step
+    time_dim = int((1 if sim_duration <= 1 else sim_duration) // time_step)
+    #print("==============================",time_dim)
     # update wn
 
     current_index = 0
@@ -1567,6 +1568,7 @@ def gather_flatten_sim_outputs(
                 return {}
 
             if array.shape[0] > time_dim:
+                time_dim = int(time_dim)
                 array = array[:time_dim]
 
             if (array.shape[0] == time_dim and time_consistency) or not time_consistency:

@@ -175,4 +175,10 @@ gigantic_dataset/outputs
 gigantic_dataset/inputs
 gigantic_dataset/temp
 debug/
+networks/
+outputs_test/
+outputs_train/
+outputs_validation
+temp/
+ditec_wdn_dataset/arguments/
 

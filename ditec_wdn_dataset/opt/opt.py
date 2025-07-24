@@ -1399,7 +1399,7 @@ def check_wdn_and_collect_stats(export_path: str = "profiler_report.json", wdn_f
 def create_blueprint_config(
     inp_path: str,
     blueprint_path: str,
-    report_json_path: Optional[str] = r"profiler_report_new.json",
+    report_json_path: Optional[str] = r"profiler_report.json",
     junc_demand_strategy: Literal["adg", "adg_v2"] = "adg_v2",
     init_demand_key: Literal["min", "max", "q3", "q1", "mean"] = "q3",
     junc_elevation_strategy: Literal["keep", "terrain"] = "terrain",
@@ -1475,7 +1475,7 @@ def find_optimal_config_wrapper(
     strategy_fn: Callable,
     inp_path: str,
     folder_yaml_path: str = r"ditec_wdn_dataset/arguments",
-    report_json_path: str = r"ditec_wdn_dataset/profiler_report_new.json",
+    report_json_path: str = r"ditec_wdn_dataset/profiler_report.json",
     yaml_path: Optional[str] = None,
     reinforce_params: bool = False,
     max_iters: int = 2,
